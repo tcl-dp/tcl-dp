@@ -1,0 +1,46 @@
+# Create a DP RPC server for testing purposes.
+
+# Do not source testconfig.tcl.  It requires package tcltest,
+# which wants to parse the command arguments.
+
+if {$argc != 3} {
+	error "Usage: tclsh [info script] dpPackagePath dpVersion portNumber"
+} 
+set dpPackagePath [lindex $argv 0]
+set dpVersion     [lindex $argv 1]
+set portNumber    [lindex $argv 2]
+
+# Require the exact dp package under test
+set auto_path [linsert $auto_path 0 $dpPackagePath]
+package require -exact dp $dpVersion
+
+puts "Creating RPC server on port $portNumber. This can take up to 20 seconds."
+set s [dp_MakeRPCServer $portNumber]
+if {![string match tcp* $s]} {
+    puts stdout "ERROR: [info script]: Could not create test RPC server."
+    exit 1
+} else {
+    puts "Created RPC server '$s'."
+} 
+
+set outFile stderr
+proc DebugOn {str} {
+    global outFile
+    traceProc $str "PrintTrace $outFile"
+}
+
+proc PrintTrace {f traceId level args} {
+    set fmtstr "%[set level]s"
+    set argstr [format %s $args]
+    if {[string length $argstr] > 60} {
+	set argstr "[string range $argstr 0 60] ..."
+    }
+    set cr [string first "\n" $argstr]
+    if {$cr != -1} {
+	incr cr -1
+	set argstr "[string range $argstr 0 $cr] ..."
+    }
+    puts $f "[format $fmtstr ""] $argstr"
+}
+vwait forever
+

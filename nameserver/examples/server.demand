@@ -1,0 +1,22 @@
+#!/usr/local/public/bin/dpsh -f
+
+proc Foobar {} {
+	return "You've just called a procedure remotely."
+}
+
+proc ExitServer {} {
+	global srvc
+
+	NS_SrvcExit $srvc
+	exit
+}
+
+set port [dp_MakeRPCServer 0]
+
+# Get the service name from argv
+set srvc [NS_GetSrvcName]
+#set srvc /demo/server
+
+set host [NS_GetHostName]
+NS_SrvcInit $srvc $host $port
+

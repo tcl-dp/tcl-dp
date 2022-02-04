@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content>
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>IPM Channel</title>
+</head>
+
+<body bgcolor="#C0C0C0" text="#000000" link="#0000EE"
+vlink="#551A8B" alink="#FF0000">
+
+<h3>IP&nbsp;Multicast Channel</h3>
+
+<p><b>Syntax</b></p>
+
+<p><tt>dp_connect ipm -group </tt><em><tt>ipAddr</tt></em><tt>
+-myport </tt><em><tt>myPort</tt></em><tt> -ttl </tt><em><tt>numHops</tt></em></p>
+
+<p><b>Comments</b></p>
+
+<p>IPM is the multicast version of UDP.&nbsp; It allows any
+number of machines to join a group and if a message is sent to
+the group address, all the machines will hear it.</p>
+
+<ul>
+    <li><i>ipAddr</i> is the IP&nbsp;address of the group.&nbsp;
+        This <b>must</b> be an multicast address in the range of
+        224.0.0.0 to 239.255.255.255.</li>
+    <li><i>myPort</i> is the local port and is optional.</li>
+    <li><i>numHops</i> is the Time To Live value.&nbsp; The
+        multicast packets will only cross <i>numHops</i>-1
+        routers after which they are discarded by the
+        router.&nbsp; To keep all multicast data on the local
+        subnet, use a ttl value of 1.&nbsp; Proper netiquette
+        maintains that this number be as low as possible.&nbsp;
+        It is optional and defaults to 1.</li>
+</ul>
+
+<hr>
+
+<p>One can add and drop IPM group memberships using the
+fconfigure -group command. See below for examples and please note
+the use of the plus and minus symbol to signify add or drop. An
+IPM channel can be a member of any number of multicast groups
+(although it is usually limited by the OS to 20) so it is not
+necessary to drop a group in order to add a new one.</p>
+
+<hr>
+
+<p><b>Examples</b></p>
+
+<dl>
+    <dt><tt>dp_connect ipm -group 224.76.0.119</tt></dt>
+    <dt><tt>dp_connect ipm -group 225.23.120.87 -ttl 3</tt></dt>
+    <dt><tt>dp_connect ipm -group 238.1.1.1 -port 1905 -ttl 255</tt></dt>
+    <dt><tt>fconfigure $ipmChan -group +226.54.3.2</tt></dt>
+    <dt><tt>fconfigure $ipmChan -group -232.56.198.6</tt></dt>
+</dl>
+</body>
+</html>
+

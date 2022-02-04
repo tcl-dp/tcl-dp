@@ -1,0 +1,33 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content>
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>dp_send</title>
+</head>
+
+<body>
+
+<h3>dp_send</h3>
+
+<p><b>Syntax</b></p>
+
+<pre>dp_send <i>chanID</i><em> string</em></pre>
+
+<p><strong>Comments</strong></p>
+
+<p>dp_send allows direct output onto a channel, bypassing Tcl's
+I/O layer. It calls the given channel's output method until all
+of <em>string </em>has been sent.</p>
+
+<p>dp_send returns the amount of data sent.</p>
+
+<p><font color="#000000"><strong>Examples</strong></font></p>
+
+<p><font color="#000000">dp_send $chan [read $file1024]</font></p>
+</body>
+</html>
+

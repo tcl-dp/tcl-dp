@@ -1,0 +1,28 @@
+proc ReadCommand  {mode fid} {
+	global env
+
+	if {[gets $fid input] == -1} {
+		puts "Connect closed by the remote host"
+		exit
+	} 
+	if {[catch "ldExec  [lindex $input 1]" result]} {
+		puts stdout -1
+		puts stdout $result
+	} else {
+		puts stdout 1
+	}
+	exit	
+}
+
+proc ldExec {args} {
+	global path
+
+	foreach x $path {
+		if {[catch "exec $x$args &" result] ==0} {
+			return
+		} 
+	}
+	error $result
+}
+dp_filehandler stdin  r ReadCommand
+

@@ -1,0 +1,42 @@
+@meta { Title: "Jeff's Style Sheet" }
+
+BODY	{ font-family: "geneva", "arial", "helvetica", "sans-serif";
+	background: #FFFFFF }
+
+TD,TH	{ font-family: "geneva", "arial", "helvetica", "sans-serif" }
+
+ADDRESS	{ font-size: small }
+
+.DARK	{ background-color: #990033; color: #FFFF66 ! important }
+.MEDIUM	{ background-color: #DD9999 }
+.LIGHT	{ background-color: #CCCCFF }
+.DARK2	{ background-color: #330066; color: #FF6600 ! important }
+.LIGHT2	{ background-color: #EFEFFF }
+.LIGHT3	{ background-color: #9999AA }
+.GRAY	{ background-color: #DDDDDD }
+.WHITE	{ color: white }
+
+.CODELINK	{ text-decoration: none }
+
+.FOOTER		{ font-size: x-small }
+
+H1 { font-size: large; font-weight: bold; }
+H2 { font-size: large; font-weight: bold; }
+H3 { font-size: medium; font-weight: bold; }
+H4 { font-size: small; font-weight: bold; }
+H5 { font-size: small; font-weight: bold; font-style: italic }
+H6 { font-size: small; font-weight: normal; font-style: italic }
+
+.HEADING	{ font-size: large; line-height: 120%; font-weight: bold }
+.PRIMNAV	{ font-size: medium; line-height: 120%; font-weight: bold;
+		text-decoration: none; }
+
+.SECNAV	{ font-size: small; text-decoration: none;
+	margin-left: 0px; text-indent: 0px }
+.TOPNAV	{ font-size: small; line-height: 140%; font-weight: bold;
+	text-decoration: none }
+.TERTNAVI { font-size: small; line-height: 120%; text-decoration: none }
+.NAVI	{ font-size: small; line-height: 140%; text-decoration: none }
+.INDENT	{ margin-left: 1em; text-indent: -1em }
+.NAVIS	{ margin: 0; color: #808080; font-size: x-small; line-height: 120%; 
+	text-decoration: none; }

@@ -1,0 +1,39 @@
+<html>
+<title>traceProc</title>
+<head>
+<h3>dp_traceProc, dp_untraceProc - procedure tracing facilities</h3>
+</head>
+<body>
+<HR>
+<pre>
+dp_traceProc procedure command
+</pre>
+Sets up a procedure trace on procedure and returns a trace id  to
+identify  the  new procedure trace.  Procedure may be an abbrevation.
+In any furthur evaluation of Tcl code,  right  before  any
+procedure whose name starts with the string procedure is evaluated,
+command is evaluated with the arguments of the trace id,  the
+level  of  nesting, and the command line that was to be evaluated
+before the procedure trace interrupted.
+<P>
+Example usage:
+<pre>
+proc PrintTrace {traceId level args} {
+        set fmtstr "%[set level]s"
+        puts stdout "[format $fmtstr ""] $args"
+}
+
+dp_traceProc e PrintTrace;
+</pre>
+From now on, all commands starting with the character "e" will be
+traced.
+<pre>
+dp_untraceProc traceId
+</pre>
+Removes the procedure trace  defined  by  traceId.
+<hr>
+Brian Smith (bsmith@cs.berkeley.edu) <BR>
+Steve Yen (syen@cs.berkeley.edu) <BR>
+Stephen Tu (tus@roger-rabbit.cs.berkeley.edu) <br>
+</body>
+</html>

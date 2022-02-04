@@ -1,0 +1,101 @@
+<html>
+<title>dpwish</title>
+<head>
+<h3>
+dpwish - Distributed programming/windowing shell <br>
+dptcl - Distributed programming shell<br>
+dpsh - Distributed programming shell<br>
+</h3>
+</head>
+<body>
+<HR>
+<pre>
+dpwish  ?options?  ?filename arg arg ...?
+dptcl ?options? ?filename arg arg ...?
+dpsh ?options? ?filename arg arg ...?
+</pre>
+Dpwish  is  a  simple  program  consisting  of  the  Tcl  command
+language,  the  Tk toolkit, the Tcl-DP extension, and a main program
+that reads commands from standard input or from a file.   It
+creates  a  main window (dpwish only) and then processes Tcl commands.
+If dpwish is invoked with filename equal ``-'', it  reads
+Tcl  commands  interactively  from standard input.  Otherwise, it
+will read commands from the specified  file.   It  will  continue
+processing  commands until all windows have been deleted or until
+end-of-file is reached on standard input.  If the dpwish  executable
+is  named  dptcl, then the -notk flag is implied.  Finally,
+dpsh is a version of dpwish that contains  only  th  Tcl  command
+language,  the  Tcl-DP  extension,  and a main program that reads
+commands from standard input or from a file.  If there  exists  a
+file  .dpwishrc  in  the  home directory of the user, dpwish (and
+dptcl) will evaluate the file as a Tcl script just before reading
+the  first  command  from standard input.  The corresponding file
+for dpsh is .dpshrc If the -file option is provided to  Tk,  then
+dpwish  (or dptcl or dpsh) reads Tcl commands from the file named
+in the -file option.  These commands will normally create an  interactive
+interface consisting of one or more widgets.  When the
+end of the command file  is  reached,  dpwish  will  continue  to
+respond  to  X events until all windows have been deleted.  There
+is no automatic evaluation of .dpwishrc in  this  case,  but  the
+script file can always source it if desired.
+<P>
+Dpwish, dptcl, and dpsh set the  following  Tcl  variables:
+<UL><LI>
+<pre>
+argc
+</pre>
+Contains  a count of the number of arg arguments (0 if none), not
+including the options described above.
+</LI><LI><pre>
+argv
+</pre>
+Contains a Tcl  list
+whose  elements  are the arg arguments (not including the options
+described above), in order, or an empty string if  there  are  no
+arg  arguments.
+</LI><LI><pre>
+argv0
+</pre>
+Contains  fileName  if it was specified. Otherwise, contains the name by
+which  dpwish  was  invoked.
+</LI><LI><pre>
+tcl_interactive
+</pre>
+Contains 1 if dpwish is reading commands interactively (no -file option
+was specified and  standard  input  is  a terminal-like device), 0 otherwise.
+</LI></UL>
+
+If you create a Tcl script in a file whose first line is
+<pre>
+#!/usr/local/bin/dpwish -f
+</pre>
+then you can invoke the script file directly from your  shell  if
+you  mark it as executable.  If you create a Tcl script in a file
+whose first line is
+<pre>
+#!/usr/local/bin/dptcl -f
+</pre>
+then you can invoke the script file directly from your  shell  if
+you  mark  it as executable.  This form implies the -notk option.
+The same technique can be used for dpsh.
+<P>
+The example above assume that dpwish  and  dptcl  have  been  installed
+in  the default location in /usr/local/bin;  if they are
+installed somewhere else then you'll have  to  modify  the  above
+line to match.
+
+When any of the programs are invoked interactively they  normally
+prompt  for  each command with ``% ''.  You can change the prompt
+by setting the variables tcl_prompt1 and tcl_prompt2.
+If variable tcl_prompt1 exists then it must consist of a Tcl script to
+output a prompt;  instead of  outputting  a  prompt  dpwish  will
+evaluate  the script in tcl_prompt1.  The variable tcl_prompt2 is
+used in a similar way when a newline is  typed  but  the  current
+command  isn't  yet  complete;  if tcl_prompt2 isn't set then no
+prompt is output for incomplete commands.
+<hr>
+Brian Smith (bsmith@cs.berkeley.edu) <BR>
+Steve Yen (syen@cs.berkeley.edu) <BR>
+Stephen Tu (tus@roger-rabbit.cs.berkeley.edu) <br>
+</body>
+</html>

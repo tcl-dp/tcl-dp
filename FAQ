@@ -1,0 +1,51 @@
+Tcl-DP - Things to know before mailing us
+-----------------------------------------
+
+Mail
+----
+
+Do not mail anyone besides "tcl-dp@cs.cornell.edu".  Do not email
+the individual authors.  We will terminate your mail with extreme
+prejudice.
+
+
+Compiling
+---------
+
+In Unix, Tcl-DP uses Tcl's settings for compilation.  Assuming Tcl
+compiled fine, DP should compile fine.  If you want to compile DP
+with gcc, you must compile Tcl with gcc first by using
+"configure --enable-gcc" when configuring Tcl.
+
+
+Installation
+------------
+
+Installation is done via a new utility we have written called Teki.
+Teki will keep track of any Tcl packages and automatically install
+or uninstall them.  There are no command line arguments.
+
+You cannot use the Makefile to install DP.  You will be cursed by the gods
+if you try.
+
+
+Basic Tcl-DP script tips
+------------------------
+
+If you are using tclsh to run a server script, you should have
+something like the following:
+
+set server [dp_MakeRPCServer $port]
+vwait forever
+
+The vwait is essential since tclsh does not automatically handle
+asynchronous events.  Note that wish does and thus does not need
+the vwait.
+
+
+To shutdown the server, connect a client and execute:
+
+dp_RDO $client set forever 1
+
+This will cause the server to exit the event loop, the script will
+finish and Tcl will automatically close the channel.

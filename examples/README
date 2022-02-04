@@ -1,0 +1,13 @@
+
+This directory contains example Tcl/Tk applications that use Tcl-DP.  
+The examples supplied (in order from simple to complex) are:
+
+    telnet.tk	- A very simple telnet-like interface in Tcl-DP.  Run with:
+		  "dpwish -notk -f telnet.tk localhost 25"
+    id		- integer identifier server
+    conference	- multiperson conference server
+    tictactoe	- multiplayer game, uses Tk
+
+The first two applications use terminal I/O -- you can run them
+with "dpwish -notk".  The third uses graphics, so you'll need to
+use dpwish.

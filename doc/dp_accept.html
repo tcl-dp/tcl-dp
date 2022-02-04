@@ -1,0 +1,39 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content>
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>dp_accept</title>
+</head>
+
+<body bgcolor="#C0C0C0" text="#000000" link="#0000EE"
+vlink="#551A8B" alink="#FF0000">
+
+<h3>dp_accept</h3>
+
+<dl>
+    <dt><b>Syntax</b>&nbsp;</dt>
+    <dt>&nbsp;</dt>
+    <dt><tt>dp_accept </tt><em><tt>chanID</tt></em></dt>
+    <dt><tt></tt>&nbsp;</dt>
+    <dt><b>Comments</b></dt>
+    <dt><b></b>&nbsp;</dt>
+    <dt>This command is used to let a server TCP&nbsp;channel
+        listen for client connections.&nbsp; Do not use this
+        command on non-TCP&nbsp;channels. dp_accept blocks until
+        a client is connected.</dt>
+    <dt>&nbsp;</dt>
+    <dt>This command returns a list with the channel name of the
+        new client/server connection and the IP&nbsp;address of
+        the client which was accepted.</dt>
+    <dt>&nbsp;</dt>
+    <dt><b>Examples</b></dt>
+    <dt>&nbsp;</dt>
+    <dt><tt>set cliChan [lindex [dp_accept $myServerChan] 0]</tt></dt>
+</dl>
+</body>
+</html>
+

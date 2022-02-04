@@ -1,0 +1,29 @@
+# Run the unit test for the Tcl-DP C-API
+#
+# John McGehee, http://www.voom.net 8/13/2010
+
+# CMake creates testconfig.tcl from testconfig.tcl.in, substituting CMake variables.
+source [file join tests testconfig.tcl]
+
+test api-1 {start a Tcl-DP server to communicate with} -body {
+	# Use the ../tests/make-server command to start a server (just as ../tests/rpc.test does)
+	# Start an RPCServer with the script make-server
+	set sourceDir [file dir [file dir [info script]]]
+	set makeServerScript [file join ${sourceDir} tests make-server]
+	source $makeServerScript
+} -result 0
+
+set dpApiExampleExecutable [file join ${softwareUnderTestDir} api $DP_API_EXAMPLE_FILE]
+
+test api-2 {dpApiExample exists and is executable} -body {
+	global dpApiExampleExecutable
+	expr {[file exists $dpApiExampleExecutable] && [file executable $dpApiExampleExecutable]}
+} -result 1
+
+test api-3 {execute the Tcl-DP C-API test program dpApiExample} -body {
+	global dpApiExampleExecutable
+	exec $dpApiExampleExecutable
+} -returnCodes 0 -result {All Tcl-DP C-API tests passed.}
+
+::tcltest::cleanupTests
+return $::tcltest::numTests(Failed)

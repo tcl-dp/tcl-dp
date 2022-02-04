@@ -1,0 +1,113 @@
+# copy.test
+#
+#	This file tests the dp_copy command.
+#
+
+# CMake creates testconfig.tcl from testconfig.tcl.in, substituting CMake variables.
+source [file join tests testconfig.tcl]
+
+set argsError {wrong # args: should be "dp_copy ?-size size? inChanId outChanId ?outChanId ...?"}
+
+test copy-1.1 {dp_copy command} -body {
+    list [catch {dp_copy} msg] $msg
+} -result [list 1 $argsError]
+
+test copy-1.2 {dp_copy command} -body {
+    list [catch {dp_copy foo} msg] $msg
+} -result [list 1 $argsError]
+
+test copy-1.3 {dp_copy command} -body {
+    list [catch {dp_copy -size 1000 foo} msg] $msg
+} -result [list 1 $argsError]
+
+test copy-1.4 {dp_copy command} -body {
+    list [catch {dp_copy -size foo} msg] $msg
+} -result {1 {expected integer but got "foo"}}
+
+test copy-1.5 {dp_copy command} -body {
+    list [catch {dp_copy -size stdin} msg] $msg
+} -result {1 {expected integer but got "stdin"}}
+
+test copy-2.1 {create temp file for testing} -body {
+    set tmpfd [open testtmp.00 {CREAT TRUNC WRONLY}]
+    puts -nonewline $tmpfd "0123456789"
+    puts $tmpfd ".........."
+    puts $tmpfd "abcd..abcd"
+    close $tmpfd
+    set dp_copyTmpFileGood 1
+} -result 1
+
+catch {close $tmpfd}
+
+# Skip tests from here on if $dp_copyTmpFileGood does not exist
+::tcltest::testConstraint dp_copyTmpFileGood [info exists dp_copyTmpFileGood]
+if ![info exists dp_copyTmpFileGood] {
+    puts stderr "Cannot create temporary file. Some tests of dp_copy are skipped."
+    catch {
+	file delete testtmp.00
+    }
+}
+
+test copy-2.2 {dp_copy command} -constraints dp_copyTmpFileGood -body {
+    set ifd [open testtmp.00 {RDONLY}]
+    set ofd [open testtmp.01 {CREAT TRUNC WRONLY}]
+
+    dp_copy -size 10 $ifd $ofd
+    close $ifd
+    close $ofd
+
+    set ofd [open testtmp.01 {RDONLY}]
+    gets $ofd
+} -result "0123456789"
+
+catch {close $ifd}
+catch {close $ofd}
+
+test copy-2.3 {dp_copy command} -constraints dp_copyTmpFileGood -body {
+    set ifd [open testtmp.00 {RDONLY}]
+    set ofd [open testtmp.01 {CREAT TRUNC WRONLY}]
+
+    dp_copy -size 10 $ifd $ofd
+    dp_copy -size 15 $ifd $ofd
+    close $ifd
+    close $ofd
+
+    set ofd [open testtmp.01 {RDONLY}]
+    set stuff "[gets $ofd][gets $ofd]"
+    #
+    # N.B. The newline character is discarded by gets
+    #
+} -result "0123456789..........abcd"
+
+catch {close $ifd}
+catch {close $ofd}
+
+test copy-2.4 {dp_copy command} -constraints dp_copyTmpFileGood -body {
+    set ifd  [open testtmp.00 {RDONLY}]
+    set ofd1 [open testtmp.01 {CREAT TRUNC WRONLY}]
+    set ofd2 [open testtmp.02 {CREAT TRUNC WRONLY}]
+
+    dp_copy -size 10 $ifd $ofd1 $ofd2
+    dp_copy -size 5  $ifd $ofd1 $ofd2
+    dp_copy -size 10 $ifd $ofd1
+    close $ifd
+    close $ofd1
+    close $ofd2
+
+    set ofd1 [open testtmp.01 {RDONLY}]
+    set ofd2 [open testtmp.02 {RDONLY}]
+    set stuff "[gets $ofd1][gets $ofd2][gets $ofd1][gets $ofd2]"
+
+} -result "0123456789..........0123456789.....abcd"
+
+catch {close $ifd}
+catch {close $ofd1}
+catch {close $ofd2}
+
+catch {file delete testtmp.00}
+catch {file delete testtmp.01}
+catch {file delete testtmp.02}
+
+::tcltest::cleanupTests
+return $::tcltest::numTests(Failed)
+

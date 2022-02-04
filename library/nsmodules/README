@@ -1,0 +1,5 @@
+This directory is automatically added to the auto_path of the name server.
+Put any functions you want autoloaded into the nameserver in this directory,
+start a tclsh, and execute "auto_mkindex . *.tcl"
+Then edit the file $dp_library/ns/nscap and add the module commands to
+the nsModuleCmds variable

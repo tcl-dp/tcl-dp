@@ -1,0 +1,265 @@
+# filters.test
+#
+#	This file tests the correct functioning of the in-built filter functions.
+#	The code for plug-in channels is assumed to work correctly.
+#
+
+# CMake creates testconfig.tcl from testconfig.tcl.in, substituting CMake variables.
+source [file join tests testconfig.tcl]
+
+
+test filters-1.1.1 {create test files and strings} -body {
+    list [catch {
+
+	set x "abcdefghijklmnopqrstuvxyzABCDEFG"
+	set y "ABCDEFGHIJKLMNOPQRSTUVXYZABCDEFG"
+
+	for {set i 0} {[expr $i < 10]} {incr i} {
+	    set x $x$x
+	    set y $y$y
+	}
+
+	set f [open ___1 {WRONLY CREAT TRUNC}]
+	puts -nonewline $f $x
+	close $f
+
+    } msg] $msg 
+} -result {0 {}}
+
+
+test filters-1.2.1 {xor plugin filter setup} -body {
+    list [catch {
+
+	set cin  [open ___1 {RDONLY}]
+	set xin  [dp_connect plugfilter -channel $cin  -infilter xor]
+	set xxin [dp_connect plugfilter -channel $xin  -infilter xor]
+
+	expr [string match plugfilter* $xin] * [string match plugfilter* $xxin]
+
+    } msg] $msg 
+} -result {0 1}
+
+
+test filters-1.2.2 {xor plugin internal parameter setup} -body {
+    list [catch {
+
+	fconfigure $xin  -inset  "a random string that is not too short"
+	fconfigure $xin  -translation binary
+	fconfigure $xxin -inset "a random string that is not too short"
+	fconfigure $xxin -translation binary
+
+    } msg] $msg 
+} -result {0 {}}
+
+test filters-1.2.3 {xor plugin internal parameter setup} -body {
+    list [catch {
+
+	fconfigure $xin -inset "this will not succeed"
+
+    } msg] $msg 
+} -result {1 {can't set option this will not succeed for input filter}}
+
+
+test filters-1.2.4 {xor plugin filters used and checked} -body {
+    list [catch {
+
+	set x1 [ read $xxin 100000 ]
+
+	close $cin
+	close $xin
+	close $xxin
+
+	string compare $x $x1
+
+    } msg] $msg 
+} -result {0 0}
+
+
+test filters-1.3.1 {xor and uuencode composite filter setup} -body {
+    list [catch {
+
+	set cin  [open ___1 {RDONLY}]
+	fconfigure $cin -translation binary
+	set xin  [dp_connect plugfilter -channel $cin  -infilter xor]
+	fconfigure $xin -translation binary -inset "any string"
+	set xxin [dp_connect plugfilter -channel $xin  -infilter uuencode]
+	fconfigure $xxin -translation binary
+
+	expr [string match plugfilter* $xin] *[string match plugfilter* $xxin]
+
+    } msg] $msg 
+} -result {0 1}
+
+test filters-1.3.2 {xor and uudecode composite filter setup} -body {
+    list [catch {
+
+	set cout  [open ___1x {WRONLY CREAT TRUNC}]
+	fconfigure $cout -translation binary
+	set xout  [dp_connect plugfilter -channel $cout  -outfilter xor]
+	fconfigure $xout -translation binary -outset "any string"
+	set xxout [dp_connect plugfilter -channel $xout  -outfilter uudecode]
+	fconfigure $xxout -translation binary
+
+	expr [string match plugfilter* $xout] * [string match plugfilter* $xxout]
+
+    } msg] $msg 
+} -result {0 1}
+
+test filters-1.3.3 {xor/uuencode and uudecode/xor filters used and checked } -body {
+    list [catch {
+
+	dp_copy $xxin $xxout
+
+	close $cin
+	close $xin
+	close $xxin
+	close $xxout
+	close $xout
+	close $cout
+
+	set cin [open ___1x {RDONLY}]
+	set rx [read $cin 100000]
+	close $cin
+
+	string compare $rx $x
+
+    } msg] $msg 
+} -result {0 0}
+
+test filters-1.4.1 {packon plugin filter setup} -body {
+    list [catch {
+
+	set cin  [open ___1 {RDONLY}]
+	set cout [open ___1x {WRONLY CREAT TRUNC}]
+
+	set xout [dp_connect plugfilter -channel $cout -outfilter packon]
+
+	string match plugfilter* $xout
+
+    } msg] $msg 
+} -result {0 1}
+
+test filters-1.4.2 {packon filter used} -body {
+    list [catch {
+
+	for {set r [read $cin 500]} {[string length $r] != 0} {set r [read $cin 500]} {
+	    puts -nonewline $xout $r
+	    flush $xout
+	    flush $cout
+	}
+
+    } msg] $msg 
+} -result {0 {}}
+
+close $cin
+close $xout
+close $cout
+
+test filters-1.4.3 {packoff filter setup} -body {
+    list [catch {
+
+		set cin [open ___1x {RDONLY}]
+		set xin [dp_connect packoff -channel $cin]
+		fconfigure $xin -blocking no
+
+		string match packoff* $xin
+
+    } msg] $msg 
+} -result {0 0}
+
+
+test filters-1.4.4 {check correct behavior of packon and packoff} -body {
+    list [catch {
+	
+	set xr ""
+
+	for {set r [read $xin 100]} {[expr [string length $r] != 0]} {set r [read $xin 100 ]} {
+	    if {[string length $r] <= 100 } {
+			set xr $xr$r
+	    } else {
+			error "String length > 100"
+	    }
+	}
+	string compare $xr $x
+    } msg] $msg 
+} -result {0 0}
+
+close $cin
+close $xin
+
+proc MyTclCode {s mode} {
+
+    switch -exact $mode {
+
+	normal -
+	eof    -
+	flush  {set s [string toupper $s]}
+	close  {set s ""}
+	default error
+
+    }
+
+    return $s
+
+}
+
+test filters-1.5.1 {tclfilter setup } -body {
+    list [catch {
+
+		set cin [open ___1 {RDONLY}]
+		set xin [dp_connect plugfilter -channel $cin -infilter tclfilter]
+		string match plugfilter* $xin
+
+    } msg] $msg 
+} -result {0 1}
+
+
+test filters-1.5.2 {tclfilter configuration} -body {
+    list [catch {
+		fconfigure $xin -inset MyTclCode
+    } msg] $msg 
+} -result {0 {}}
+
+
+test filters-1.5.3 {tclfilter configuration} -body {
+    list [catch {
+		fconfigure $xin -inset ThisWillFail
+    } msg] $msg 
+} -result {1 {can't set option ThisWillFail for input filter}}
+
+
+test filters-1.5.4 {} -body {
+    list [catch {
+
+	set yr [read $xin 100000]
+
+	close $cin
+	close $xin
+
+	string compare $yr $y
+
+    } msg] $msg 
+} -result {0 0}
+
+
+test filters-1.6.1 {cleanup} -body {
+    list [catch {
+
+	file delete ___1
+	file delete ___1x
+
+    } msg] $msg 
+} -result {0 {}}
+
+::tcltest::cleanupTests
+return $::tcltest::numTests(Failed)
+
+
+
+
+
+
+
+
+
+

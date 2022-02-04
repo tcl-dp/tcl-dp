@@ -1,0 +1,9 @@
+#!/usr/local/public/bin/dpsh -f
+
+set fd [NS_GetServiceConn /demo/*]
+set result [dp_RPC $fd Foobar]
+puts $result
+dp_after 10000
+dp_RDO $fd ExitServer
+exit
+

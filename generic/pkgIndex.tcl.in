@@ -1,0 +1,16 @@
+# Tcl Distributed Processing package index file.
+# For more information about Tcl-DP, see the documentation in
+#    @CMAKE_INSTALL_PREFIX@/doc/index.html
+# or,
+#    http://tcldp.sourceforge.net
+#
+# This file is processed by CMake configuration_file() to substitute
+# Cmake variable names with their values.
+
+proc @PROJECT_NAME@-@DP_VERSION@:Init { dir } {
+    foreach file @DP_TCL_LIB_FILES_TCLLIST@ {
+        uplevel #0 source [list [file join $dir $file]]
+    }
+    uplevel #0 load [list [file join $dir @DP_LIB_FILE@]]
+}
+package ifneeded @PROJECT_NAME@ @DP_VERSION@ [list @PROJECT_NAME@-@DP_VERSION@:Init $dir]

@@ -1,0 +1,59 @@
+# We can't test the serial port send/recv since
+# there is no way to do it locally.
+#
+# You must define a variable "hookedup" that is
+# set when there is a NULL modem set up on the first
+# serial port of each machine.  Alternatively, you
+# can change the dp_connect line below to the correct port.
+#
+# You must also define a variable "send" or
+# "recv" in the two interpreters.
+#
+# Test send/receive
+#
+
+# CMake creates testconfig.tcl from testconfig.tcl.in, substituting CMake variables.
+source [file join tests testconfig.tcl]
+
+test serial-0.0 {check hookedup variable set up} -body {
+    # Setup is incomplete, so the test fails
+    info exists hookedup
+} -result 1
+
+if {![info exists hookedup]} {
+	puts stdout "*** Skipping [info script] serial send/recv tests because the variable 'hookedup' is undefined."
+	::tcltest::cleanupTests
+	return $::tcltest::numTests(Failed)
+}
+
+set sock1 [dp_connect serial -device serial1]
+
+if {[info exists send] == 1} {
+    puts stdout "We're sending ..."
+    test serialxmit-1.0.0 {send serial} {
+	list [catch {
+	    puts $sock1 "Test 1"
+	} msg] $msg
+    } {0 {}}
+}
+
+if {[info exists recv] == 1} {
+    puts stdout "We're receiving ..."
+    test serialxmit-1.0.0 {read serial} {
+	list [catch {
+	    gets $sock1
+	} msg] $msg
+    } {0 {Test 1}}
+}
+
+test serial-1.0.1 {peek serial} -body {
+    fconfigure $sock1 -blocking 0
+    read $sock1
+} -result {}
+fconfigure $sock1 -blocking 1
+
+close $sock1
+
+::tcltest::cleanupTests
+return $::tcltest::numTests(Failed)
+

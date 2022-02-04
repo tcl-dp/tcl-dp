@@ -1,0 +1,158 @@
+# identity.test
+#
+#	This file tests the correct functioning of the standalone
+#	identity filter.
+#
+
+# CMake creates testconfig.tcl from testconfig.tcl.in, substituting CMake variables.
+source [file join tests testconfig.tcl]
+
+test identity-1.1.1 {dp_connect command} -body {
+    list [catch {
+        dp_connect identity -bar
+    } msg] $msg 
+} -result {1 {unknown option "-bar", must be -channel}}
+
+
+test identity-1.1.2 {dp_connect command} -body {
+    list [catch {
+        dp_connect identity -bar foo
+    } msg] $msg 
+} -result {1 {unknown option "-bar", must be -channel}}    
+
+#
+# Test argument missing checks.
+#
+
+test identity-1.2.1 {dp_connect command} -body {
+    list [catch {
+        dp_connect identity -channel
+    } msg] $msg 
+} -result {1 {option value missing for -channel}}    
+
+test identity-1.2.2 {dp_connect command} -body {
+    list [catch {
+        dp_connect identity
+    } msg] $msg 
+} -result {1 {-channel must be defined for an identity channel}}
+
+test identity-1.2.3 {dp_connect command} -body {
+    list [catch {
+        dp_connect identity -channel wrong_channel
+    } msg] $msg 
+} -result {1 {can not find channel named "wrong_channel"}}
+
+#
+# Test functioning by copying data from a file.
+#
+
+test identity-1.2.4 {dp_connect command} -body {
+    list [catch {
+	set x "01234567890123456789012345678901"
+
+	for {set i 0} {[expr $i < 10]} {set i [expr $i + 1]} {
+	    set x $x$x
+	}
+
+	set f [open ___tmp {WRONLY CREAT}]
+	puts -nonewline $f $x
+	close $f
+
+	set f [open ___tmp {RDONLY}]
+
+        set idChan [dp_connect identity -channel $f]
+
+    } msg] $msg 
+} -result {0 idfilter0}
+
+
+if {$idChan != ""} {
+
+test identity-1.3.2 {fconfigure command} -body {
+    list [catch {
+	fconfigure $idChan -translation binary
+        fconfigure $idChan
+    } msg] $msg 
+} -result [list 0 [list -blocking 1 -buffering full -buffersize 4096 -encoding binary -eofchar {{} {}} -translation {lf lf} -channel $f -peek 0]]
+
+
+test identity-1.3.3 {fconfigure command} -body {
+    list [catch {
+        fconfigure $idChan -badoption
+    } msg] $msg 
+} -result {1 {bad option "-badoption": must be -blocking, -buffering, -buffersize, -eofchar, -translation, or a channel type specific option}}
+
+test identity-1.3.4 {fconfigure command} -body {
+    list [catch {
+        fconfigure $idChan -channel
+    } msg] $msg 
+} -result [list 0 [list $f]]
+
+test identity-1.3.5 {fconfigure command} -body {
+    list [catch {
+        fconfigure $idChan -channel something
+    } msg] $msg 
+} -result {1 {can't set channel after identity channel is opened}}
+
+
+test identity-1.3.6 {fconfigure command} -body {
+    list [catch {
+        fconfigure $idChan -peek
+    } msg] $msg 
+} -result {0 0}
+
+test identity-1.3.7 {fconfigure command} -body {
+    list [catch {
+        fconfigure $idChan -peek badvalue
+    } msg] $msg 
+} -result {1 {expected boolean value but got "badvalue"}}
+
+test identity-1.3.8 {fconfigure command} -body {
+    list [catch {
+        fconfigure $idChan -blocking yes
+    } msg] $msg 
+} -result {0 {}}
+
+test identity-1.3.9 {dp_copy command} -body {
+    list [catch {
+	set g [open ___out {WRONLY CREAT}]
+	dp_copy $idChan $g
+	close $f
+	close $g
+	set g [open ___out {RDONLY}]
+        set y [read $g 100000]
+	close $g
+	file delete ___out
+	if {[expr [string compare $x $y] == 0]} {
+	    set rez ok
+	} else {
+	    set rez failed
+	}		
+    } msg] $msg 
+} -result {0 ok}
+
+
+test identity-1.3.10 {close identity filter} -body {
+    list [catch {
+	close $idChan
+    } msg] $msg 
+} -result {0 {}}
+
+
+# The following brace matches the line below:
+# if {$idChan != ""} 
+
+}
+
+test identity-1.4.1 {cleanup} -body {
+    list [catch {
+	file delete ___tmp
+	file delete ___out
+    } msg] $msg 
+} -result {0 {}}
+
+::tcltest::cleanupTests
+return $::tcltest::numTests(Failed)
+
+
+

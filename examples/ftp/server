@@ -1,0 +1,14 @@
+dp_MakeRPCServer 1905
+
+proc SendFile {host port filename} {
+    set inFile [open $filename r]
+    set info [dp_connect $host $port]
+    set socket [lindex $info 0]
+    while {![eof $inFile]} {
+	set data [read $inFile 8192]
+	dp_send $socket $data nonewline
+    }
+    close $inFile
+    close $socket
+}
+

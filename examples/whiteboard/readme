@@ -1,0 +1,6 @@
+This is the Tcl-DP whiteboard example.  To use, simply start wish/tclsh
+and source the wbServer.tcl.  Then you can start as many wishes as you need
+and source wbClient.tcl in each one.  Note that the server cannot be a
+client also.
+
+

@@ -1,0 +1,42 @@
+<html>
+<title>Tdp_RPC</title>
+<head>
+<h3>Tdp_RPC - C access to Tcl-DP remote procedure call commands</h3>
+</head>
+<body>
+<pre>
+#include "network.h"
+
+int Tdp_RPC (interp, fileHandle, command, events, timeout, timeoutReturn)
+Tcl_Interp   *interp           /* Tcl interpreter, mainly for error msgs */
+char         *fileHandle       /* Represents an RPC connection to a remote 
+                                  Tcl/Tk process */
+char         *command          /* Tcl/Tk command to be evaluated in the 
+                                  remote Tcl/Tk interpreter */
+int          events            /* Passed to Tk_DoOneEvent while waiting 
+                                  for RPC return value  */
+int          timeout           /* Integer milliseconds */
+char         *timeoutReturn    /* Tcl command to eval in case of timeout */
+</pre>
+<hr>
+The above routines give C access to the Tcl-DP  remote  procedure
+call commands (dp_RPC and dp_RDO).
+<P>
+If the events argument is less than 0, then no events are handled
+while  waiting  for  an RPC return value on the given RPC connec-
+tion.  If the events argument is not less than 0, then the events
+argument  is the same type of argument as passed to Tk_DoOneEvent
+and allows one to flag for the event types which will be  handled
+while  waiting for an RPC return value.  This events argument, if
+not less than 0, is automatically or'ed with TK_FILE_EVENTS  flag
+so that file events are always handled.
+<P>
+If the timeout argument is zero or less than zero, timeout will
+not be checked.
+
+<hr>
+Brian Smith (bsmith@cs.berkeley.edu) <br>
+Steve Yen (syen@cs.berkeley.edu) <br>
+Stephen Tu (tus@roger-rabbit.cs.berkeley.edu) <br>
+</body>
+</html>

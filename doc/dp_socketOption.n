@@ -1,0 +1,303 @@
+'\"
+'\" Copyright (c) 1990 The Regents of the University of California.
+'\" All rights reserved.
+'\"
+'\" Permission is hereby granted, without written agreement and without
+'\" license or royalty fees, to use, copy, modify, and distribute this
+'\" documentation for any purpose, provided that the above copyright
+'\" notice and the following two paragraphs appear in all copies.
+'\"
+'\" IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
+'\" FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
+'\" ARISING OUT OF THE USE OF THIS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
+'\" CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+'\"
+'\" THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
+'\" INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
+'\" AND FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS
+'\" ON AN "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO
+'\" PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+'\" 
+.\" The definitions below are for supplemental macros used in Tcl/Tk
+.\" manual entries.
+.\"
+.\" .HS name section [date [version]]
+.\"	Replacement for .TH in other man pages.  See below for valid
+.\"	section names.
+.\"
+.\" .AP type name in/out [indent]
+.\"	Start paragraph describing an argument to a library procedure.
+.\"	type is type of argument (int, etc.), in/out is either "in", "out",
+.\"	or "in/out" to describe whether procedure reads or modifies arg,
+.\"	and indent is equivalent to second arg of .IP (shouldn't ever be
+.\"	needed;  use .AS below instead)
+.\"
+.\" .AS [type [name]]
+.\"	Give maximum sizes of arguments for setting tab stops.  Type and
+.\"	name are examples of largest possible arguments that will be passed
+.\"	to .AP later.  If args are omitted, default tab stops are used.
+.\"
+.\" .BS
+.\"	Start box enclosure.  From here until next .BE, everything will be
+.\"	enclosed in one large box.
+.\"
+.\" .BE
+.\"	End of box enclosure.
+.\"
+.\" .VS
+.\"	Begin vertical sidebar, for use in marking newly-changed parts
+.\"	of man pages.
+.\"
+.\" .VE
+.\"	End of vertical sidebar.
+.\"
+.\" .DS
+.\"	Begin an indented unfilled display.
+.\"
+.\" .DE
+.\"	End of indented unfilled display.
+.\"
+'\"	# Heading for Tcl/Tk man pages
+.de HS
+.ds ^3 \\0
+.if !"\\$3"" .ds ^3 \\$3
+.if '\\$2'cmds'       .TH \\$1 1 \\*(^3 \\$4
+.if '\\$2'lib'        .TH \\$1 3 \\*(^3 \\$4
+.if '\\$2'tcldp'         .TH \\$1 n \\*(^3 Tcl-DP "Tcl-DP Commands"
+.if '\\$2'tcldpc'         .TH \\$1 3 \\*(^3 Tcl-DP "Tcl-DP Library Procedures"
+.if '\\$2'tcldpcmds'         .TH \\$1 1 \\*(^3 Tcl-DP "Tcl-DP Applications"
+.if '\\$2'tcldpintro'         .TH \\$1 n \\*(^3 Tcl-DP "Introduction to Tcl-DP"
+.if t .wh -1.3i ^B
+.nr ^l \\n(.l
+.ad b
+..
+'\"	# Start an argument description
+.de AP
+.ie !"\\$4"" .TP \\$4
+.el \{\
+.   ie !"\\$2"" .TP \\n()Cu
+.   el          .TP 15
+.\}
+.ie !"\\$3"" \{\
+.ta \\n()Au \\n()Bu
+\&\\$1	\\fI\\$2\\fP	(\\$3)
+.\".b
+.\}
+.el \{\
+.br
+.ie !"\\$2"" \{\
+\&\\$1	\\fI\\$2\\fP
+.\}
+.el \{\
+\&\\fI\\$1\\fP
+.\}
+.\}
+..
+'\"	# define tabbing values for .AP
+.de AS
+.nr )A 10n
+.if !"\\$1"" .nr )A \\w'\\$1'u+3n
+.nr )B \\n()Au+15n
+.\"
+.if !"\\$2"" .nr )B \\w'\\$2'u+\\n()Au+3n
+.nr )C \\n()Bu+\\w'(in/out)'u+2n
+..
+'\"	# BS - start boxed text
+'\"	# ^y = starting y location
+'\"	# ^b = 1
+.de BS
+.br
+.mk ^y
+.nr ^b 1u
+.if n .nf
+.if n .ti 0
+.if n \l'\\n(.lu\(ul'
+.if n .fi
+..
+'\"	# BE - end boxed text (draw box now)
+.de BE
+.nf
+.ti 0
+.mk ^t
+.ie n \l'\\n(^lu\(ul'
+.el \{\
+.\"	Draw four-sided box normally, but don't draw top of
+.\"	box if the box started on an earlier page.
+.ie !\\n(^b-1 \{\
+\h'-1.5n'\L'|\\n(^yu-1v'\l'\\n(^lu+3n\(ul'\L'\\n(^tu+1v-\\n(^yu'\l'|0u-1.5n\(ul'
+.\}
+.el \}\
+\h'-1.5n'\L'|\\n(^yu-1v'\h'\\n(^lu+3n'\L'\\n(^tu+1v-\\n(^yu'\l'|0u-1.5n\(ul'
+.\}
+.\}
+.fi
+.br
+.nr ^b 0
+..
+'\"	# VS - start vertical sidebar
+'\"	# ^Y = starting y location
+'\"	# ^v = 1 (for troff;  for nroff this doesn't matter)
+.de VS
+.mk ^Y
+.ie n 'mc \s12\(br\s0
+.el .nr ^v 1u
+..
+'\"	# VE - end of vertical sidebar
+.de VE
+.ie n 'mc
+.el \{\
+.ev 2
+.nf
+.ti 0
+.mk ^t
+\h'|\\n(^lu+3n'\L'|\\n(^Yu-1v\(bv'\v'\\n(^tu+1v-\\n(^Yu'\h'-|\\n(^lu+3n'
+.sp -1
+.fi
+.ev
+.\}
+.nr ^v 0
+..
+'\"	# Special macro to handle page bottom:  finish off current
+'\"	# box/sidebar if in box/sidebar mode, then invoked standard
+'\"	# page bottom macro.
+.de ^B
+.ev 2
+'ti 0
+'nf
+.mk ^t
+.if \\n(^b \{\
+.\"	Draw three-sided box if this is the box's first page,
+.\"	draw two sides but no top otherwise.
+.ie !\\n(^b-1 \h'-1.5n'\L'|\\n(^yu-1v'\l'\\n(^lu+3n\(ul'\L'\\n(^tu+1v-\\n(^yu'\h'|0u'\c
+.el \h'-1.5n'\L'|\\n(^yu-1v'\h'\\n(^lu+3n'\L'\\n(^tu+1v-\\n(^yu'\h'|0u'\c
+.\}
+.if \\n(^v \{\
+.nr ^x \\n(^tu+1v-\\n(^Yu
+\kx\h'-\\nxu'\h'|\\n(^lu+3n'\ky\L'-\\n(^xu'\v'\\n(^xu'\h'|0u'\c
+.\}
+.bp
+'fi
+.ev
+.if \\n(^b \{\
+.mk ^y
+.nr ^b 2
+.\}
+.if \\n(^v \{\
+.mk ^Y
+.\}
+..
+'\"	# DS - begin display
+.de DS
+.RS
+.nf
+.sp
+..
+'\"	# DE - end display
+.de DE
+.fi
+.RE
+.sp .5
+..
+.HS dp_SocketOption tcldp
+.BS
+.SH NAME
+dp_socketOption \- Change the options on a socket
+.BE
+.TP
+\fBdp_socketOption \fIsockId option ?arg?\fR
+
+The dp_socketOption command provides access to the setsockopt(2)
+and getsockopt(2) system calls.  If the optional \fIarg\fP is provided,
+the \fIoption\fP is set on the socket \fIsockId\fP.  Otherwise, the
+current value of \fIoption\fP associated with \fIsockId\fP is returned.
+Currently, 3 socket options can be adjusted:
+.RS
+.TP
+\fBdp_socketOption \fIsockId sendBuffer ?bytes?\fR
+Sets/gets the size of the send buffer
+for \fIsockId\fP.  The send buffer is the number of bytes that can be buffered
+in the system before a send/recv or read/write call will block.
+The default value is machine dependent.
+
+.TP
+\fBdp_socketOption \fIsockId recvBuffer ?bytes?\fR
+Sets/gets the size of the receive buffer
+for \fIsockId\fP.  The receive buffer is the number of bytes that can be
+buffered in the system before data will cease to flow on a tcp socket, or be
+dropped on a udp socket.
+The default value is machine dependent.
+
+.TP
+\fBdp_socketOption \fIsockId noblock ?yes|no? \fR
+Sets/gets the non blocking i/o
+mode for the connection associated with \fIsockId\fP.  This option
+will change the behavior of various transmission routines as described
+in dp_connect(n).
+The default value is "no."
+
+.TP
+\fBdp_socketOption \fIsockId autoClose ?yes|no? \fR
+Sets/gets the autoClose
+flag for the connection associated with \fIsockId\fP.  If
+the autoClose flag is "yes", then any errors detected in
+transmission will automatically close the file.  This case
+typically arrives when the connection is closed unexpectedly.
+Users can attach callbacks to the closing of the file using
+the dp_atclose facility.  The default value is "yes."
+
+.TP
+\fBdp_socketOption \fIsockId keepAlive ?yes|no? \fR
+Sets/gets the "Keep Alive" flag for
+the tcp connection associated with \fIsockId\fP.  If the "Keep Alive" flag
+is on, the system sends periodic transmission of messages on a tcp
+socket.  Should  the connected  party fail to respond to these messages,
+the connection is considered broken and will be closed automatically.
+The default value is "no."
+
+.TP
+\fBdp_socketOption \fIsockId reuseAddr ?yes|no? \fR
+Sets/gets the flag for local address reuse.  When set, other processes
+can "take over" the port number of the socket.  This option is useful
+in combination with server sockets (i.e., socket created using "dp_connect
+-server"), since it allows the address to be reused immediately if
+the server crashes.  The default value is "no."
+
+.TP
+\fBdp_socketOption \fIsockId linger ?seconds? \fR
+Sets/gets the "linger time" for a socket.  A value of 0 means that,
+when the socket is closed, the close function call will return
+immediately and the system will attempt to send any unsent data in the
+background.  If a non-zero value is specified, the close will block for
+at most that many seconds have passed while the system tries to send
+any unsent data.  In current implementations, the actual value of the
+linger time is ignored.  The default value is 0.
+
+.TP
+\fBdp_socketOption \fIsockId ttl int \fR
+Sets/gets the ttl "Time to Live" of multicast packets
+transmitted from \fIsockId\fP.  By using a small value,
+you can limit the broadcast range of the packet.
+
+.TP
+\fBdp_socketOption \fIsockId loopBack  ?yes|no?\fR
+Sets/gets the "loopBack" flag for the multicast socket associated with
+\fIsockId\fP.  If the "loopBack" flag is "no", the sender will not
+receive a copy of the packets it transmits.  If the "loopBack" flag is
+"yes", the sender will receive a copy of the packets it transmits.
+
+.TP
+\fBdp_socketOption \fIsockId addMbr|dropMbr group \fR
+Sets/gets the membership for the multicast socket associated with
+\fIsockId\fP.  Processes use this option to join or leave a given
+multicast group.  The last argument, group, should be a valid
+IP-multicast address represented in "dot" notation.
+
+.SH "SEE ALSO"
+setsockopt(2), getsockopt(2),  dp_connect(n)
+
+.SH AUTHOR
+Brian Smith (bsmith@cs.berkeley.edu)
+.br
+Steve Yen (syen@cs.berkeley.edu)
+.br
+Stephen Tu (tus@roger-rabbit.cs.berkeley.edu)

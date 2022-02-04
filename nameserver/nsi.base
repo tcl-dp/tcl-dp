@@ -1,0 +1,933 @@
+# User-Interface to the nameserver
+#
+
+# mkDialog w msgArgs list list ...
+#
+# Create a dialog box with a message and any number of buttons at
+# the bottom.
+#
+# Arguments:
+#    w -	Name to use for new top-level window.
+#    msgArgs -	List of arguments to use when creating the message of the
+#		dialog box (e.g. text, justifcation, etc.)
+#    list -	A two-element list that describes one of the buttons that
+#		will appear at the bottom of the dialog.  The first element
+#		gives the text to be displayed in the button and the second
+#		gives the command to be invoked when the button is invoked.
+
+proc mkDialog {w msgArgs args} {
+    catch {destroy $w}
+    toplevel $w -class Dialog
+
+    # Create two frames in the main window. The top frame will hold the
+    # message and the bottom one will hold the buttons.  Arrange them
+    # one above the other, with any extra vertical space split between
+    # them.
+
+    frame $w.top -relief raised -border 1
+    frame $w.bot -relief raised -border 1
+    pack append $w $w.top {top fill expand} $w.bot {top fill expand}
+    
+    # Create the message widget and arrange for it to be centered in the
+    # top frame.
+    
+    eval message $w.top.msg -justify center \
+	    -font -*-times-medium-r-normal--*-180* $msgArgs
+    pack append $w.top $w.top.msg {top expand padx 5 pady 5}
+    
+    # Create as many buttons as needed and arrange them from left to right
+    # in the bottom frame.  Embed the left button in an additional sunken
+    # frame to indicate that it is the default button, and arrange for that
+    # button to be invoked as the default action for clicks and returns in
+    # the dialog.
+
+    if {[llength $args] > 0} {
+	set arg [lindex $args 0]
+	frame $w.bot.0 -relief sunken -border 1
+	pack append $w.bot $w.bot.0 {left expand padx 20 pady 20}
+	button $w.bot.0.button -text [lindex $arg 0] \
+		-relief raised \
+		-command "[lindex $arg 1]; destroy $w"
+	pack $w.bot.0.button -side bottom -ipadx 2m -ipady 1m
+	bind $w.top <Enter> "$w.bot.0.button activate"
+	bind $w.top.msg <Enter> "$w.bot.0.button activate"
+	bind $w.bot <Enter> "$w.bot.0.button activate"
+	bind $w.top <Leave> "$w.bot.0.button deactivate"
+	bind $w.top.msg <Leave> "$w.bot.0.button deactivate"
+	bind $w.bot <Leave> "$w.bot.0.button deactivate"
+	bind $w <1> "$w.bot.0.button config -relief sunken"
+	bind $w <ButtonRelease-1> \
+		"[lindex $arg 1]; $w.bot.0.button deactivate; destroy $w"
+	bind $w <Return> "[lindex $arg 1]; destroy $w"
+	focus $w
+
+	set i 1
+	foreach arg [lrange $args 1 end] {
+	    button $w.bot.$i -text [lindex $arg 0] \
+		    -command "[lindex $arg 1]; destroy $w"
+	    pack append $w.bot $w.bot.$i {left expand padx 20}
+	    set i [expr $i+1]
+	}
+    }
+}
+
+
+
+
+
+proc menubar {w} {
+	#----------------------------------------------------------
+	# "help" -- logo and help manue
+	#----------------------------------------------------------
+	menubutton $w.help -text "Help" -menu $w.help.menu -width 5 -relief raised
+
+	menu $w.help.menu
+	$w.help.menu add command -label "On Contex..." -command {Help context}
+
+	$w.help.menu add command -label "On Help..." -command {Help help}
+
+	$w.help.menu add command -label "On Commands..." -command {Help commands}
+
+	$w.help.menu add command -label "On Version..." -command "logo"
+
+	#----------------------------------------------------------
+	# "quit" -- exit the program
+	#----------------------------------------------------------
+	menubutton $w.quit -text "Quit" -menu $w.quit.menu -width 5 -relief raised
+
+	menu $w.quit.menu
+	$w.quit.menu add command -label "Quit" -command "exit"
+
+#	label $w.description -bg DarkSlateGray4
+	label $w.description -bg thistle3
+# colors: MistyRose2 wheat3 LightPink2 thistle3
+
+	#----------------------------------------------------------
+	pack $w.description -side left
+	pack $w.quit -side right -padx 0m
+#	pack $w.help -side right -padx 0m
+
+	#----------------------------------------------------------
+}
+
+
+proc errorBox {msg} {
+	set w .errorDlg
+	toplevel $w -class Dialog
+	wm title $w "Error"
+	wm geometry $w 400x100
+	focus $w
+	grab set $w
+	label $w.errorIcon -bitmap error
+	message $w.errorMsg -text $msg -width 3.5i
+	button $w.dismiss -text Dismiss -command "destroy $w"
+	pack $w.dismiss -side bottom -pady 2m -ipadx 2m -ipady 1m
+	pack $w.errorIcon -side left -padx 3m -pady 2m
+	pack $w.errorMsg -fill both -padx 3m -pady 2m
+	tkwait window $w
+}
+
+
+#---------------------------------------------------------------------
+# updateServiceList -- updates displayed services information
+#---------------------------------------------------------------------
+
+proc updateServiceList {} {
+	set filter [.body.titles.filter get]
+	set scroll .body.frame.scroll
+	set view [$scroll get]
+	set selindex [getSelectionIndex]
+	.body.frame.name delete 0 end
+	.body.frame.addr delete 0 end
+	.body.frame.port delete 0 end
+	.body.frame.state delete 0 end
+    set services [ns_FindServices $filter]
+	foreach x $services {
+		set name [lindex $x 0]
+		set hp [lindex $x 1]
+		set host [lindex $hp 0]
+		set port [lindex $hp 1]
+		.body.frame.name insert end $name
+		.body.frame.addr insert end $host
+		.body.frame.port insert end $port
+		set state [lindex [lindex [ns_ServiceState $name] 0] 1]
+		
+		.body.frame.state insert end $state
+	}
+	setSelectionIndex $selindex 
+	.body.frame.name yview [lindex $view 2]
+	.body.frame.addr yview [lindex $view 2]
+	.body.frame.port yview [lindex $view 2]
+	.body.frame.state yview [lindex $view 2]
+}
+
+
+
+proc ButtonEnter {B description} {
+	if {[lindex [$B configure -state] 4] != "disabled"} {
+		.menu.description configure -text "$description"
+	}
+}
+
+
+proc ButtonLeave {B} {
+	if {[lindex [$B configure -state] 4] != "disabled"} {
+		.menu.description configure -text ""
+	}
+}
+	
+
+proc InstallButton {B description} {
+	pack $B -side top -padx 2m -pady 0.7m 
+	bind $B <Any-Enter> "[bind Button <Any-Enter>]; \
+			     ButtonEnter $B \"$description\""
+	bind $B <Any-Leave> "[bind Button <Any-Leave>]; \
+			     ButtonLeave $B"
+}
+
+
+proc InstallMenubutton {B description} {
+	pack $B -side top -padx 2m -pady 2m
+	bind $B <Any-Enter> "[bind Menubutton <Any-Enter>]; \
+			     .menu.description configure -text \"$description\""
+	bind $B <Any-Leave> "[bind Menubutton <Any-Leave>]; \
+			     .menu.description configure -text \"\""
+}
+
+
+#---------------------------------------------------------------------
+# Servicedisplay -- creates list boxes to display services information
+#
+# $w.frame.name
+# $w.frame.addr
+# $w.frame.port
+# $w.frame.state
+#
+#---------------------------------------------------------------------
+
+proc ServiceDisplay {w} {
+	frame $w.titles
+	frame $w.buttons
+	frame $w.frame
+	frame $w.filter
+
+	pack $w.buttons -side left -fill y
+	pack $w.titles -side top -fill x
+	pack $w.frame -side top -fill both -expand 1
+#	pack $w.filter -side top -fill both -expand 1
+	
+	label $w.buttons.lab
+	frame $w.buttons.box -bd 2 -relief sunken
+	button $w.buttons.box.add -text Add -width 7 \
+			-command {dispatch add "noService"}
+	button $w.buttons.box.alias -text Alias -width 7 \
+			-command {dispatch alias [getSelection]}
+	button $w.buttons.box.modify -text Edit -width 7 \
+			-command {dispatch modify [getSelection]}
+	button $w.buttons.box.delete -text Delete -width 7 \
+			-command {dispatch delete [getSelection]}
+	button $w.buttons.box.info -text Info -width 7 \
+			-command {dispatch info [getSelection]}
+	button $w.buttons.box.launch -text Launch -width 7 \
+			-command {dispatch launch [getSelection]}
+	button $w.buttons.box.reset -text Reset -width 7 \
+		-command {dispatch reset [getSelection] [getAddress] [getPort]}
+
+	pack $w.buttons.lab -side top -padx 3m
+	pack $w.buttons.box -side top -fill y -padx 1m
+	InstallButton $w.buttons.box.add "Add a new service"
+	InstallButton $w.buttons.box.alias "Alias an existing service"
+	InstallButton $w.buttons.box.modify "Modify a service"
+	InstallButton $w.buttons.box.delete "Delete services"
+	InstallButton $w.buttons.box.info "Get information about a service"
+	InstallButton $w.buttons.box.launch "Launch services"
+	InstallButton $w.buttons.box.reset "Reset service state"
+
+	#--------------------------------------------------------------
+	# listboxes titles
+	#--------------------------------------------------------------
+	label $w.titles.name -text "Service:" -width 10
+	entry $w.titles.filter -width 18 -relief sunken 
+	$w.titles.filter insert end "/*"
+	bind $w.titles.filter <Return> "updateServiceList"
+	label $w.titles.addr -text "Internet Address" -width 25
+	label $w.titles.port -text "TCP Port #" -width 10
+	label $w.titles.state -text "State" -width 10
+
+	pack $w.titles.name -side left 
+	pack $w.titles.filter -side left -pady 0.5m 
+	pack $w.titles.addr -side left 
+	pack $w.titles.port -side left
+	pack $w.titles.state -side left
+
+	scrollbar $w.frame.scroll -command "myscroll $w" -orient vertical
+
+	#--------------------------------------------------------------
+	# listboxes
+	#--------------------------------------------------------------
+	
+	listbox $w.frame.name -yscrollcommand "$w.frame.scroll set" \
+		-relief sunken -geometry 30x10 -exportselection 0
+
+#	scrollbar $w.frame.srvcscroll  -command "myscroll $w" -orient horizontal
+
+	listbox $w.frame.addr -yscrollcommand "$w.frame.scroll set" \
+		-relief sunken -geometry 25x10 -exportselection 0
+
+	listbox $w.frame.port -yscrollcommand "$w.frame.scroll set" \
+		-relief sunken -geometry 10x10 -exportselection 0
+
+	listbox $w.frame.state -yscrollcommand "$w.frame.scroll set" \
+		-relief sunken -geometry 10x10 -exportselection 0
+
+	pack $w.frame.name -side left -fill y -expand 1
+	pack $w.frame.addr -side left -fill y -expand 1
+	pack $w.frame.port -side left -fill y -expand 1
+	pack $w.frame.state -side left -fill y -expand 1
+	pack $w.frame.scroll -side left -fill y -expand 1
+
+
+	listboxSingleLineSelect $w.frame.name $w.frame.addr $w.frame.port \
+				$w.frame.state
+
+	#--------------------------------------------------------------
+	# filters
+	#--------------------------------------------------------------
+
+	label $w.filter.label -text "Filter:"
+	entry $w.filter.entry -relief sunken -width 30
+	pack $w.filter.label -side left -padx 2m
+	pack $w.filter.entry -side left
+}
+
+
+#-----------------------------------------------------------------------
+# selectLine -- select each the listboxes entry that corresponds to
+#		the index.  the args are the path of the listboxes.
+#-----------------------------------------------------------------------
+proc selectLine {index} {
+	.body.frame.name select from $index
+	.body.frame.addr select from $index
+	.body.frame.port select from $index
+	.body.frame.state select from $index
+
+}
+
+#-----------------------------------------------------------------------
+# listboxSingleLineSelect -- provides 2 functionalities:
+#		1. it will change the behavior of the listboxes so
+#		 that only a single entry may be selected in each
+#		 listboxes at one time.  
+#		2. when one entry of the listboxes is selected, the 
+#		 corresponding entries in each of the listboxes will 
+#		 also be selected.
+#-----------------------------------------------------------------------
+proc listboxSingleLineSelect args {
+	foreach w $args {
+		bind $w <ButtonPress-1> {selectLine [%W nearest %y]}
+		bind $w <B1-Motion> {selectLine [%W nearest %y]}
+		bind $w <Shift-1> {selectLine [%W nearest %y]}
+		bind $w <Shift-B1-Motion> {selectLine [%W nearest %y]}
+	}
+}
+
+#-----------------------------------------------------------------------
+# myscroll -- provide one scroll bar for all my listboxes.
+#-----------------------------------------------------------------------
+proc myscroll {w index} {
+	$w.frame.name yview $index
+	$w.frame.addr yview $index
+	$w.frame.port yview $index
+	$w.frame.state yview $index
+}
+
+
+proc getSelectionIndex {} {
+	return [.body.frame.name curselection]
+}	
+
+
+proc setSelectionIndex {index} {
+	if {$index != ""} {
+		selectLine $index
+	}
+}
+
+
+proc getSelection {} {
+	set index [getSelectionIndex]
+	if {$index != ""} {
+		set result [.body.frame.name get $index]
+		if {[string index $result 0] == "@"} {
+			return [string range $result 1 end]
+		} else {
+			return [.body.frame.name get $index]
+		}
+	} else {
+		return
+	}
+}
+
+proc getAddress {} {
+	set index [getSelectionIndex]
+	if {$index != ""} {
+		set result [.body.frame.name get $index]
+		if {[string index $result 0] == "@"} {
+			return [string range $result 1 end]
+		} else {
+			return [.body.frame.addr get $index]
+		}
+	} else {
+		return
+	}
+}
+
+proc getPort {} {
+	set index [getSelectionIndex]
+	if {$index != ""} {
+		set result [.body.frame.name get $index]
+		if {[string index $result 0] == "@"} {
+			return [string range $result 1 end]
+		} else {
+			return [.body.frame.port get $index]
+		}
+	} else {
+		return
+	}
+}
+
+proc dispatch {func service args} {
+	if {$service == ""} {
+		return
+	}
+	puts "Dispatching $func"
+	switch $func {
+		add {return [AddService]}
+		alias {return [AliasService $service]}
+		modify {return [ModifyService $service]}
+		delete {return [DeleteService $service]}
+		info {return [InfoService $service]}
+		launch {return [LaunchService $service]}
+		reset {return [ResetService $service [lindex $args 0] [lindex $args 1]]}
+	}
+}
+
+proc AddService {} {
+	CheckPermission
+	dlgAdd "" "" ""
+}
+
+
+proc dlgAdd {service machine command} {
+	set w .dlgAddService
+	toplevel $w -class Dialog
+	wm title $w "Demand Service Definition"
+
+	frame $w.row1
+	label $w.row1.label -text "service:" -width 8
+	entry $w.row1.entry -bd 2 -relief sunken -width 40
+	$w.row1.entry insert 0 $service
+	bind $w.row1.entry <Key-Return> "focus $w.row2.entry"
+	bind $w.row1.entry <Key-Tab> "focus $w.row2.entry"
+	pack $w.row1 -side top -fill x
+	pack $w.row1.label $w.row1.entry -side left
+
+	frame $w.row2
+	label $w.row2.label -text "host:" -width 8
+	entry $w.row2.entry -bd 2 -relief sunken -width 40
+	$w.row2.entry insert 0 $machine
+	bind $w.row2.entry <Key-Return> "focus $w.row3.entry"
+	bind $w.row2.entry <Key-Tab> "focus $w.row3.entry"
+	pack $w.row2 -side top -fill x
+	pack $w.row2.label $w.row2.entry -side left
+
+	frame $w.row3
+	label $w.row3.label -text "command:" -width 8
+	entry $w.row3.entry -bd 2 -relief sunken -width 40
+	$w.row3.entry insert 0 $command
+	bind $w.row3.entry <Key-Return> "focus $w.row4.update; $w.row4.update configure -state active"
+	bind $w.row3.entry <Key-Tab> "focus $w.row4.update; $w.row4.update configure -state active"
+	pack $w.row3 -side top -fill x
+	pack $w.row3.label $w.row3.entry -side left
+
+	frame $w.row4 -bd 1 -relief sunken
+	frame $w.row4.default -bd 2 -relief ridge
+	button $w.row4.update -text Update -width 6 -command "dlgAddUpdate $w"
+	bind $w.row4.update <Key-Return> "$w.row4.update invoke"
+	bind $w.row4.update <Key-Tab> "focus $w.row4.cancel; $w.row4.update configure -state normal; $w.row4.cancel configure -state active"
+	button $w.row4.cancel -text Cancel -width 6 -command "destroy $w"
+	bind $w.row4.cancel <Key-Return> "$w.row4.cancel invoke"
+	bind $w.row4.cancel <Key-Tab> "focus $w.row1.entry; $w.row4.cancel configure -state normal"
+	pack $w.row4 -side bottom -fill x
+	pack $w.row4.default -side left -padx 1m -pady 1m
+	pack $w.row4.update -in $w.row4.default -padx 1m -pady 1m -ipadx 1m -ipady 1m
+	pack $w.row4.cancel -side left -padx 1m -pady 1m -ipadx 1m -ipady 1m
+
+	focus $w.row1.entry
+	grab set $w
+	tkwait window $w
+}
+
+proc dlgAddUpdate {w} {
+	global nsHandle config
+
+	set service [$w.row1.entry get]
+	set machine [$w.row2.entry get]
+	set command [$w.row3.entry get]
+
+	if {[catch {ns_Register addService $service $machine $command} result]} {
+		error $result
+	} else { 
+		lappend config "ns_Register addService $service $machine $command"
+		WriteConfigFile
+	}
+	destroy $w
+	updateServiceList
+}
+
+proc AliasService {srvc} {
+	CheckPermission
+	dlgAlias $srvc
+}
+
+
+
+#
+proc dlgAlias {service} {
+	set w .dlgAlias
+
+	toplevel $w -class Dialog
+	wm title $w "Alias Demand Service"
+
+	frame $w.row1
+	label $w.row1.label -text "alias:" -width 8
+	entry $w.row1.entry -bd 2 -relief sunken -width 40
+	bind $w.row1.entry <Key-Return> "focus $w.row2.entry"
+	bind $w.row1.entry <Key-Tab> "focus $w.row2.entry"
+	pack $w.row1 -side top -fill x
+	pack $w.row1.label $w.row1.entry -side left
+
+	frame $w.row2
+	label $w.row2.label -text "service:" -width 8
+	entry $w.row2.entry -bd 2 -relief sunken -width 40
+	$w.row2.entry insert 0 $service
+	bind $w.row2.entry <Key-Return> "focus $w.row3.update; $w.row3.update configure -state active"
+	bind $w.row2.entry <Key-Tab> "focus $w.row3.update; $w.row3.update configure -state active"
+	pack $w.row2 -side top -fill x
+	pack $w.row2.label $w.row2.entry -side left
+
+	frame $w.row3 -bd 1 -relief sunken
+	frame $w.row3.default -bd 2 -relief ridge
+	button $w.row3.update -text Update -width 6 -command "dlgAliasUpdate $w"
+	bind $w.row3.update <Key-Return> "$w.row3.update invoke"
+	bind $w.row3.update <Key-Tab> "focus $w.row3.cancel; $w.row3.update configure -state normal; $w.row3.cancel configure -state active"
+	button $w.row3.cancel -text Cancel -width 6 -command "destroy $w"
+	bind $w.row3.cancel <Key-Return> "$w.row3.cancel invoke"
+	bind $w.row3.cancel <Key-Tab> "focus $w.row1.entry; $w.row3.cancel configure -state normal"
+	pack $w.row3 -side bottom -fill x
+	pack $w.row3.default -side left -padx 1m -pady 1m
+	pack $w.row3.update -in $w.row3.default -padx 1m -pady 1m -ipadx 1m -ipady 1m
+	pack $w.row3.cancel -side left -padx 1m -pady 1m -ipadx 1m -ipady 1m
+
+	focus $w.row1.entry
+	grab set $w
+	tkwait window $w
+}
+
+
+proc dlgAliasUpdate {w} {
+	global config
+
+	set alias [$w.row1.entry get]
+	set service [$w.row2.entry get]
+
+	if {[catch {ns_Register aliasService $service $alias} result]} {
+		errorBox $result
+	} else {
+		lappend config "ns_Register aliasService $service $alias"
+		WriteConfigFile
+	}
+	destroy $w
+	updateServiceList
+}
+
+
+
+proc ModifyService {srvc} {
+	CheckPermission	
+	dlgModify $srvc
+}
+
+proc dlgModify {service} {
+	set w .dlgEditService
+	toplevel $w -class Dialog
+	wm title $w "Edit Demand Service"
+
+	set info [ns_Register info $service]
+	set srvc [lindex $info 0]
+	set machine [lindex $info 2]
+	set command [lindex $info 3]
+
+	frame $w.row1
+	label $w.row1.label -text "service:" -width 8
+	entry $w.row1.entry -bd 2 -relief sunken -width 40
+	$w.row1.entry insert 0 $service
+	bind $w.row1.entry <Key-Return> "focus $w.row2.entry"
+	bind $w.row1.entry <Key-Tab> "focus $w.row2.entry"
+	pack $w.row1 -side top -fill x
+	pack $w.row1.label $w.row1.entry -side left
+
+	frame $w.row2
+	label $w.row2.label -text "host:" -width 8
+	entry $w.row2.entry -bd 2 -relief sunken -width 40
+	$w.row2.entry insert 0 $machine
+	bind $w.row2.entry <Key-Return> "focus $w.row3.entry"
+	bind $w.row2.entry <Key-Tab> "focus $w.row3.entry"
+	pack $w.row2 -side top -fill x
+	pack $w.row2.label $w.row2.entry -side left
+
+	frame $w.row3
+	label $w.row3.label -text "command:" -width 8
+	entry $w.row3.entry -bd 2 -relief sunken -width 40
+	$w.row3.entry insert 0 $command
+	bind $w.row3.entry <Key-Return> "focus $w.row4.update; $w.row4.update configure -state active"
+	bind $w.row3.entry <Key-Tab> "focus $w.row4.update; $w.row4.update configure -state active"
+	pack $w.row3 -side top -fill x
+	pack $w.row3.label $w.row3.entry -side left
+
+	frame $w.row4 -bd 1 -relief sunken
+	frame $w.row4.default -bd 2 -relief ridge
+	button $w.row4.update -text Update -width 6 -command "dlgModifyUpdate $w"
+	bind $w.row4.update <Key-Return> "$w.row4.update invoke"
+	bind $w.row4.update <Key-Tab> "focus $w.row4.cancel; $w.row4.update configure -state normal; $w.row4.cancel configure -state active"
+	button $w.row4.cancel -text Cancel -width 6 -command "destroy $w"
+	bind $w.row4.cancel <Key-Return> "$w.row4.cancel invoke"
+	bind $w.row4.cancel <Key-Tab> "focus $w.row1.entry; $w.row4.cancel configure -state normal"
+	pack $w.row4 -side bottom -fill x
+	pack $w.row4.default -side left -padx 1m -pady 1m
+	pack $w.row4.update -in $w.row4.default -padx 1m -pady 1m -ipadx 1m -ipady 1m
+	pack $w.row4.cancel -side left -padx 1m -pady 1m -ipadx 1m -ipady 1m
+
+	focus $w.row1.entry
+	grab set $w
+	tkwait window $w
+}
+
+
+proc dlgModifyUpdate {w} {
+	global config
+
+	set service [$w.row1.entry get]
+	set machine [$w.row2.entry get]
+	set command [$w.row3.entry get]
+
+	if {[catch {ns_Register modifyService $service $machine $command} result]} {
+		error $result
+	} else {
+		set i 0
+		foreach x $config {
+			set srvc [lindex $x 2]
+			set cmd [lindex $x 1]
+			if {$service == $srvc && $cmd == "addService"} {
+				break
+			} 
+			incr i
+		}
+		set config [lreplace $config $i $i "ns_Register addService $service $machine $command"]
+		WriteConfigFile
+	}
+	destroy $w
+	updateServiceList
+}
+
+
+
+
+proc InfoService {srvc} {
+
+	dlgInfo $srvc
+}
+
+proc dlgInfo {service} {
+
+	set w .dlgInfoService
+	toplevel $w -class Dialog
+	wm title $w "Service Info"
+
+	set info [ns_Register info $service]
+	set srvc [lindex $info 0]
+	set aliasOf [lindex $info 1]
+	set machine [lindex $info 2]
+	set command [lindex $info 3]
+
+	
+	frame $w.row1
+	label $w.row1.label -text "service:" -width 8
+	entry $w.row1.entry -bd 2 -relief sunken -width 40
+	$w.row1.entry insert 0 $service
+	bind $w.row1.entry <Key-Return> "focus $w.row2.entry"
+	bind $w.row1.entry <Key-Tab> "focus $w.row2.entry"
+	pack $w.row1 -side top -fill x
+	pack $w.row1.label $w.row1.entry -side left
+	$w.row1.entry configure -state disabled
+
+	frame $w.row2
+	label $w.row2.label -text "alias for:" -width 8
+	entry $w.row2.entry -bd 2 -relief sunken -width 40
+	$w.row2.entry insert 0 $aliasOf
+	pack $w.row2 -side top -fill x
+	pack $w.row2.label $w.row2.entry -side left
+	$w.row2.entry configure -state disabled
+
+	frame $w.row3
+	label $w.row3.label -text "host:" -width 8
+	entry $w.row3.entry -bd 2 -relief sunken -width 40
+	$w.row3.entry insert 0 $machine
+	pack $w.row3 -side top -fill x
+	pack $w.row3.label $w.row3.entry -side left
+	$w.row3.entry configure -state disabled
+
+	frame $w.row4
+	label $w.row4.label -text "command" -width 8
+	entry $w.row4.entry -bd 2 -relief sunken -width 40
+	$w.row4.entry insert 0 $command
+	pack $w.row4 -side top -fill x
+	pack $w.row4.label $w.row4.entry -side left 
+	$w.row4.entry configure -state disabled
+
+	frame $w.row5 -bd 1 -relief sunken
+	frame $w.row5.default -bd 2 -relief ridge
+	button $w.row5.cancel -text Cancel -width 6 -command "destroy $w"
+	bind $w.row5.cancel <Key-Return> "$w.row5.cancel invoke"
+	pack $w.row5 -side bottom -fill x
+	pack $w.row5.default -side left -padx 1m -pady 1m
+	pack $w.row5.cancel -side left -padx 1m -pady 1m -ipadx 1m -ipady 1m
+
+	focus $w.row1.entry
+	grab set $w
+	tkwait window $w
+}
+
+
+proc DeleteService {srvc} {
+	global config
+	CheckPermission
+	if {[catch {ns_Register deleteService $srvc} result]} {
+		errorBox $result
+	} else {
+		set i 0
+		foreach x $config {
+			set s [lindex $x 2]
+			set cmd [lindex $x 1]
+			if {$s == $srvc} {
+				break
+			} 
+			incr i
+		}
+		set config [lreplace $config $i $i {}]
+		WriteConfigFile		
+		updateServiceList
+	}
+}
+
+proc LaunchService {srvc} {
+	puts "Launching $srvc"
+	if {[catch {ns_LaunchServices [list $srvc]} result]} {
+		errorBox $result
+	} else {
+		updateServiceList
+	}
+}
+
+proc ResetService {srvc addr port} {
+	puts "Reseting $srvc"
+	
+	# Connect to the service to see if it's still running
+    # Reset it if connection fails
+	if {[catch {ns_KillServices $srvc} result]} {
+		errorBox $result
+	} else {
+		updateServiceList
+	}
+}
+
+	
+proc shellService {service} {
+	set hp [lookupService $service]
+	set host [lindex $hp 0]
+	set port [lindex $hp 1] 
+	if {$host == "ONDEMAND" || $host == "LAUNCHING"} {
+		return
+	}
+
+	set w .sh_$service
+	toplevel $w
+	wm withdraw $w
+	wm title $w "Shell: $service"
+
+	if [catch {dp_MakeRPCClient [lindex $hp 0] [lindex $hp 1]} handle] {
+		errorBox "unable to connect to service $service at $host $port"
+	}
+
+	button $w.quit -text Quit -command "shellQuit $w $handle"
+	pack $w.quit -side bottom -fill x
+
+	text $w.display -bd 3 -relief sunken -yscrollcommand "$w.scroll set"
+	pack $w.display -side left -padx 2 -pady 2
+	bind $w.display <Key-Return> "shellReturn $w $handle"
+	focus $w.display
+
+	scrollbar $w.scroll -command "$w.display yview"
+	pack $w.scroll -side right -fill y
+
+	$w.display insert end "% "
+	after 1000 "wm deiconify $w"
+}
+
+proc shellQuit {w handle} {
+	dp_CloseRPC $handle
+	destroy $w
+}
+
+proc shellReturn {w handle} {
+	set end [$w.display index end]
+	set begin "[lindex [split $end .] 0].2"
+	set line [$w.display get $begin $end]
+
+	$w.display insert end "\n"
+	if {$line == "clear"} {
+		$w.display yview [$w.display index end]
+	} else {
+		if {$line == "exit" || $line == "quit"} {
+			dp_CloseRPC $handle
+			destroy $w
+			return
+		} else {
+			if {[catch {eval dp_RPC $handle $line} result] == 0} {
+				$w.display insert end "$result\n"
+			} else {
+				$w.display insert end "[lindex $line 0]: "
+				$w.display insert end "$result\n"
+			}
+			$w.display yview -pickplace [$w.display index end]
+		}
+	}
+	$w.display insert end "% "
+}
+
+
+proc logo {} {
+	set w .logo
+	toplevel $w
+	wm title $w "Name Server Interface"
+	wm geometry $w 200x150
+	focus $w
+	grab set $w
+
+	button $w.ok -text "OK" -command "destroy $w"
+	pack $w.ok -side bottom -pady 2m -ipadx 2m -ipady 1m
+
+	message $w.display \
+		-font -adobe-helvetica-*-r-normal-*-*-*-*-*-*-*-*-* \
+		-relief raised -aspect 150 -borderwidth 1 \
+		-justify center \
+		-text "Name Server Interface
+			by 
+			Vicky Cao
+			Kester Li"
+	pack $w.display -side top -fill x
+
+	tkwait window $w
+}
+
+proc Help {topic} {
+	global helpTopics
+	if {$topic == ""} return
+	if [info exists helpTopics($topic)] {
+		set msg $helpTopics($topic)
+    	} else {
+		set msg "Sorry, but no help is available for this topic"
+	}
+	mkDialog .help "-text {Information on $topic:\n\n$msg} -justify left -aspect 300" "OK {}"
+}
+
+proc UpdateDisplay {} {
+	updateServiceList
+	dp_after 10000 {UpdateDisplay}
+}
+
+proc CheckPermission {} {
+	global ns_adm
+	
+	return
+	if {[file owned $ns_adm/nsconfig]} {
+		return
+	} else {
+		error "You don't have permission to use this command."
+	}
+}
+
+proc ReadConfigFile {} {
+	global config ns_adm
+
+	if {[file owned $ns_adm/nsconfig]} {
+		set config {}
+		set fd [open $ns_adm/nsconfig r]
+		while {1} {
+			if {[eof $fd]} {
+				break
+			} else {
+				set r [gets $fd]
+				if {$r != ""} {
+					lappend config $r
+				}
+			}
+		}
+		close $fd
+	}
+}
+
+proc WriteConfigFile {} {
+	global config ns_adm
+
+	if {[file owned $ns_adm/nsconfig]} {
+		set fd [open $ns_adm/nsconfig w]
+		foreach x $config {
+			puts $fd $x
+		}
+		close $fd
+	}
+}
+
+#----------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------
+
+#ns_Init
+
+set helpTopics(context) {This application provides a graphic user interface to name server.  It allows server processes to advertise their network address and port number by names; and it allows client processes to retrieve information on any advertised service.  The client processes can also define, lauch, kill, or delete services.}
+
+set helpTopics(help) {Besides the entries in this menu, there is a short description of the specific command whenever the mouse cursor moves over the specific command button.}
+
+set helpTopics(commands) "The following functionalities are defined for this application:\n\nKill:\t\tKills a running service. If the state of the \n\t\tservice is transient, the service will be deleted.  \n\t\tIf the service's state is on Demand, Kill will \n\t\tbring the service's state from Running to Demand.\n\nLaunch:\t\tStart a demand service running.\n\nShell:\t\tOpens a shell to service.\n\nEdit:\t\tEdit an alias or demand service definition.\n\nDelete:\t\tDelete an alias or demand service definition.\n\nDefine:\t\tDefine a new alias or demand service."
+
+#----------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------
+
+wm title . "Service Monitor"
+wm iconname . "NSI"
+wm minsize . 1 1
+# colors: MistyRose2 wheat3 LightPink2 thistle3
+frame .menu -relief groove -bg thistle3
+frame .body -relief sunken
+frame .space -height 10
+pack .menu -side top -fill x
+pack .body -side top -fill both -expand 1
+pack .space -side bottom -fill x
+
+ReadConfigFile
+
+menubar .menu
+ServiceDisplay .body
+UpdateDisplay
+selectLine 0
+

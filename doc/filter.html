@@ -1,0 +1,395 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content>
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>Plugin Filter Channel</title>
+</head>
+
+<body bgcolor="#C0C0C0" text="#000000" link="#0000EE"
+vlink="#551A8B" alink="#FF0000">
+
+<h3>Plug-In Filter Channel</h3>
+
+<p><b>Syntax</b></p>
+
+<p><tt>dp_connect plugfilter -channel </tt><em><tt>channel_name</tt></em><tt>
+-infilter </tt><em><tt>filter_name</tt></em><tt> -outfilter </tt><em><tt>filter_name</tt></em></p>
+
+<p><b>Comments</b></p>
+
+<p>Arguments:&nbsp;</p>
+
+<ul>
+    <li><i>channel_name</i> is the name of an already existing
+        channel (the subordinated channel), whose input and/or
+        output will be filtered. Using filters, an unlimited
+        number of channels can be composed to form a linear chain
+        that transparently performs complex functions (e.g.
+        sequencing, encrypting/decrypting, transcoding,
+        etc.).&nbsp;</li>
+    <li><i>filter_name</i> is the name of a registered filter
+        function (see below). Neither the value for -infilter,
+        nor for -outfilter is mandatory. If they are missing, the
+        corresponding filter function will be <b>identity</b>.</li>
+</ul>
+
+<dl>
+    <dt><b>Description of Filter Functions</b></dt>
+    <dt>&nbsp;</dt>
+    <dd>Prototype: <tt>int Filter (char *inBuf, int inLength,
+        char **outBuf, int *outLength, void **data, Tcl_Interp
+        *interp, int mode)&nbsp;</tt><p>Arguments: We provide
+        below the parameters' default interpretation. For the
+        other cases, please refer to the description of the mode
+        parameter below.</p>
+        <ul>
+            <li>(in) <tt>inBuf</tt>: Points to the start of the
+                input buffer. It is assumed that the filter
+                consumes the entire input. If it is not possible
+                to generate filtered output for all the input
+                data, part of it can be buffered
+                internally.&nbsp;The responsability of freeing
+                the buffer always pertains to the <font size="3"
+                face="Courier New">DP</font> code, and not to the
+                filter.</li>
+            <li>(in) <tt>inLength</tt>: The length of the input
+                buffer.&nbsp;</li>
+            <li>(out) <tt>outBuf</tt>: Whenever the filter will
+                generate output, the address of the buffer must
+                be stored in <font size="2" face="Courier New">*outbuf</font>.
+                The parameter is ignored by the <font
+                face="Courier New">DP</font> code when <font
+                size="2" face="Courier New">*outLength</font> is
+                set to 0. Unless the value of mode is <font
+                face="Courier New">DP_FILTER_GET</font>, it is
+                the responsability of the <font
+                face="Courier New">DP</font> code to manage the
+                buffer. When mode is <font face="Courier New">DP_FILTER_GET</font>,
+                it is the responsability of the filter function
+                to manage the buffer.</li>
+            <li>(out) <tt>outLength</tt>: The length of the
+                output buffer. If there is no output, <font
+                size="2" face="Courier New">*outLength</font>
+                must be set to 0.</li>
+            <li>(in) <font size="2" face="Courier New">data</font>:
+                If filter functions need persistent state
+                associated with the streams they filter, they can
+                store a pointer to these structures in <font
+                size="2" face="Courier New">*data</font>. Before
+                the first call to the filter function, the
+                plug-in channel code initializes <font size="2"
+                face="Courier New">*data</font> with <font
+                face="Courier New">NULL</font>. The filter
+                function has full responsability in managing the
+                memory zone pointed to by <font size="2"
+                face="Courier New">*data.</font> In particular,
+                the filter should free all the allocated space
+                when the value of the mode parameter is <font
+                face="Courier New">DP_FILTER_CLOSE.</font></li>
+            <li>(in) <font size="2" face="Courier New">interp</font>:
+                Pointer to the tcl interpreter in which the
+                filter channel was created. It can be used to
+                create filters that evaluate arbitrary tcl
+                expressions (see, for example. the tclfilter
+                function below).</li>
+            <li>(in) <tt>mode</tt>: This parameter specifies how
+                the other arguments must be interpreted. Unless
+                specified otherwise, the default interpretation
+                of the other parameters must be used.</li>
+            <li><ul>
+                    <li><tt>DP_FILTER_NORMAL</tt>: The <font
+                        size="2" face="Courier New">mode</font>
+                        parameter will have this value when the <font
+                        size="2" face="Courier New">-buffering</font>
+                        option of the filter channel has been set
+                        to <font size="2" face="Courier New">line</font>
+                        or <font size="2" face="Courier New">full</font>.</li>
+                    <li><tt>DP_FILTER_FLUSH</tt>: The filter is <font
+                        size="2" face="Courier New">encouraged</font>
+                        to generate output, even if this would
+                        not normally be the case. The filter can
+                        ignore this argument and behave like <font
+                        size="2" face="Courier New">mode</font>
+                        was <tt>DP_FILTER_NORMAL</tt>. The mode
+                        parameter will have this value when the <font
+                        size="2" face="Courier New">-buffering</font>
+                        option of the filter channel has been set
+                        to <font size="2" face="Courier New">none</font>.&nbsp;</li>
+                    <li><dl>
+                            <dt><font face="Courier New">DP_FILTER_EOF</font>:
+                                This value of the parameter
+                                signals that no more data will be
+                                received from the subordinated
+                                channel. At this point, the
+                                filter function must generate all
+                                the output it can, and free all
+                                its internal buffers.</dt>
+                        </dl>
+                    </li>
+                </ul>
+                <ul>
+                    <li><tt>DP_FILTER_CLOSE</tt>: This value of
+                        the parameter signals that the filter
+                        channel is about to be closed, and this
+                        is the last call to the filter function.
+                        The filter must deallocate all its
+                        internal data structures, and generate
+                        all the output it can.</li>
+                    <li><tt>DP_FILTER_SET</tt>: All parameters
+                        are ignored, except for <font size="2"
+                        face="Courier New">inBuf</font> and <font
+                        size="2" face="Courier New">inLength</font>.
+                        In this case the input buffer is a string
+                        that is passed &quot;as is&quot; by Tcl
+                        from the <font size="2"
+                        face="Courier New">fconfigure
+                        &lt;channel&gt; -[inset | outset]
+                        &lt;string&gt;</font> command. The filter
+                        function can use the string to set its
+                        internal variables. For example, this
+                        mechanism could be used to set a
+                        different pgp key for each channel.&nbsp;</li>
+                    <li><tt>DP_FILTER_GET</tt>: All parameters
+                        are ignored, except for <font size="2"
+                        face="Courier New">outBuf</font>. The
+                        filter function must store in <font
+                        size="2" face="Courier New">*outBuf</font>
+                        the address of a null-terminated string
+                        that describes its internal state. The
+                        string is read only once by <font
+                        face="Courier New">DP</font>, immediately
+                        after the filter returns. This is the
+                        only case when the filter function has to
+                        manage the memory zone whose address was
+                        stored in *outbuf; which is done to avoid
+                        unnecessary reconstructions of the state
+                        string.</li>
+                </ul>
+            </li>
+        </ul>
+        <p>Return value: If no error is detected, the return
+        value must be zero. A non-zero return value signals an
+        error, if needed, <font size="2" face="Courier New">POSIX</font>
+        error codes can be used to indicate the type of the
+        error.</p>
+        <p>Before being used, a filter function has to be
+        registered by calling function <tt>Dp_RegisterPlugInFilter</tt>.
+        <tt>TCL_OK</tt> is returned upon successful completion of
+        registration.&nbsp;</p>
+        <p>Prototype: <tt>int Dp_RegisterPlugInFilter (Tcl_Interp
+        interp, Dp_PlugInFilter *newPlugInPtr)&nbsp;</tt></p>
+        <p>Arguments:&nbsp;</p>
+        <ul>
+            <li><em>interp</em> is the pointer to the interpreter
+                in which the registration wil take place&nbsp;</li>
+            <li><em>newPlugInPtr</em> is a pointer to a filter
+                function defined as specified above.&nbsp;</li>
+        </ul>
+        <p>Filter functions can also be pre-registered, by adding
+        them to the array <b>builtInPlugs</b><i> </i>in file <b>generic/dpChan.c</b>,
+        and recompiling Tcl-DP. As of now, the following plug-in
+        filters are provided (unless specified otherwise, the
+        filters have no internal parameters):</p>
+        <ul>
+            <li>identity: Used as default value for a filter
+                function that was not defined explicitly.
+                Property: identity(X) = X.&nbsp;</li>
+            <li>plug1to2: The input string is filtered by
+                replacing each character of the string with two
+                copies of itself. Example:
+                Plug1to2(&quot;abc&quot;) = &quot;aabbcc&quot;.</li>
+            <li>plug2to1: The input string is filtered by
+                selecting the characters that have even indices.
+                Example: Plug2to1(&quot;abcdef&quot;) =
+                &quot;ace&quot;.</li>
+            <li>xor: An arbitrary, non-empty parameter string has
+                to be provided as an internal argument before
+                first using the filter. The input bytes will be
+                xor'd with the bytes in the parameter, taken in
+                circular order. This order will be preserved
+                between succesive calls. The same string must be
+                used for both encoding and decoding. Example:
+                xor(&quot;abc&quot;, &quot;12&quot;) = xyz, where
+                x = 'a' ^ '1', y = 'b' ^ '2', z = 'c' ^ '1'.</li>
+            <li>packon: Adds a header of 6 bytes to each packet
+                that is written to or read from the underlying
+                channel. The header contains a right-aligned
+                nonnegative integer in base 10; the integer is
+                padded to the left with non-significant zeroes.
+                Normally a packet is the amount of data that is
+                written to (read from) the underlying channel at
+                one time. (Note: If the amount of data is bigger
+                than the capacity of Tcl's internal buffers
+                (usually 4k), spurious packets will be
+                generated.) Example: packon(&quot;abc&quot;) =
+                &quot;000003abc&quot;.</li>
+            <li>uuencode: Same functionality as Unix uuencode;
+                converts a binary file into a specially formatted
+                file containg a subset of the ASCII character
+                set. Example: uuencode(&quot;abc&quot;) =
+                &quot;begin 740 uufilter\n$86C&quot;O\\\n\n
+                \nend\n&quot; ('\n' stands for line feed, and
+                '\\'stands for backslash).</li>
+            <li>uudecode: Same functionality as Unix uudecode.
+                Example: uudecode(&quot;begin 740
+                uufilter\n$86C&quot;O\\\n\n \nend\n&quot;) =
+                &quot;abc&quot;.</li>
+            <li><dl>
+                    <dt>tclfilter: Allows the user to use any tcl
+                        function to implement a filter. The tcl
+                        filter takes two arguments, and is
+                        assumed to consume the whole input (and
+                        buffer it, if necessary). The first
+                        argument is the (possibly zero-length)
+                        input string, The second argument can
+                        only have the values &quot;normal&quot;,
+                        &quot;flush&quot;, &quot;close&quot;,
+                        &quot;eof&quot; and corresponds to the
+                        mode <font size="2" face="Courier New">parameter</font>
+                        above. The output value is a (possibly
+                        zero-length) string that represents the
+                        first use. Arguments: the name of the tcl
+                        procedure must be set up before the first
+                        use.</dt>
+                </dl>
+            </li>
+            <li>hexout: Given a string of even length containing
+                the characters 0..9, a..f, A..F this filter
+                translates it into a sequence of bytes whose
+                hexadecimal representation is the given string.
+                Example: hexout(&quot;00Ff&quot;) will generate
+                two bytes, the first one having all bits set to
+                zero, the second one having all bites set to 1.</li>
+            <li><dl>
+                    <dt>hexin: Has the opposite effect to hexout.</dt>
+                </dl>
+            </li>
+        </ul>
+    </dd>
+</dl>
+
+<p><b>Filters as Independent Channels</b></p>
+
+<p>When some peculiar requirement or Tcl's idiosyncracies make it
+inconvenient or impossible to implement some filters using
+plug-in channels, one can obtain the desired functionality by
+creating a standalone filter channel. We provide two such
+examples:</p>
+
+<p>identity: This channel reproduces the functionality of the
+identity plug-in filter. It is provided as a skeleton that can be
+modified to implement more complex filters. This channel does not
+accept any non-standard options. Note: do not confuse the
+identity (standalone) filter channel with the identity filter
+function.</p>
+
+<p>packoff: This filter identifies packets generated by the
+packon plug-in filter (see above) and separates them from the
+input stream, returning them separately. Since this operation
+makes sense only when reading data, this channel is not writable.
+This channel does not accept any non-standard options.</p>
+
+<p><b>Properties of the Provided In-Built Filter Functions</b></p>
+
+<p>Plug1to2(Plug2to1(X)) = X.&nbsp;</p>
+
+<p>Plug2to1(Plug1to2(X)) = X.&nbsp;</p>
+
+<p>xor(xor(X,Y),Y) = X.</p>
+
+<p>packon(packoff(X)) = packoff(packon(X)).</p>
+
+<p>uudecode(uuencode(X)) = X.</p>
+
+<p>hexin(hexout(X)) = X</p>
+
+<p>hexout(hexin(X)) = X</p>
+
+<p>hexin(hexout(X)) != hexout(hexin(X))</p>
+
+<p><b>Order of Operations</b></p>
+
+<p>When flushing or closing a sequence of channels linked through
+filters, one should follow the flow of data.&nbsp;</p>
+
+<p>Example: filter1--&gt;filter2--&gt;TCP_channel&nbsp;</p>
+
+<p>When closing this composite channel the sequence of operations
+should be&nbsp;</p>
+
+<p><tt>close $filter1<br>
+close $filter2<br>
+close $tcp_channel</tt></p>
+
+<p><b>Configuration of Filter Channels&nbsp;</b></p>
+
+<p>The subordinated channel and the input and output filter
+functions of a filter channel can not be changed.</p>
+
+<p>The peek option is forwarded to the subordinated channel, but
+it does not act on the filter channel itself.&nbsp;</p>
+
+<p>There are two options, <font size="2" face="Courier New">-inset</font>
+and <font size="2" face="Courier New">-outset</font>, that can be
+used to transmit arguments to the input and output filter
+functions, respectively. The argument of <font size="2"
+face="Courier New">-inset</font> and <font size="2"
+face="Courier New">-outset</font> is a string that will be passed
+to the corresponding filter function &quot;as is&quot;. It is the
+responsability of the filter function to interpret the
+string.&nbsp;</p>
+
+<p>If the user wishes to change an option for the subordinated
+channel, this must be done directly.&nbsp;</p>
+
+<p>A filter channel will always be non-blocking. Seek is not
+allowed. A plug-in filter channel will always be both readable
+and writeable, but the real behavior will depend on the
+characteristics of the internal buffering of filter functions,
+and on the behavior of the subordinated channel.&nbsp;</p>
+
+<p>Note: though tcl itself can not handle binary data, the
+plug-in filters can. Care must be taken to set the <font size="2"
+face="Courier New">-translation </font>option to binary for the
+appropriate channels.</p>
+
+<p><b>Composition of Filters</b></p>
+
+<p>Both plug-in and independent channel filters can be composed
+with no restrictions.</p>
+
+<p><b>Examples&nbsp;</b></p>
+
+<dl>
+    <dt><tt>dp_connect plugfilter -channel tcp1 -infilter
+        plug2to1 -outfilter plug1to2<br>
+        <br>
+        dp_connect plugfilter -channel email0 -outfilter pgp
+        -infilter un_pgp<br>
+        <br>
+        set xout [dp_connect plugfilter -channel file540
+        -outfilter uuencode<br>
+        fconfigure $xout -translation binary<br>
+        set xxout [dp_connect plugfilter -channel $xout
+        -outfilter xor]<br>
+        fconfigure $xxout -translation binary -outset &quot;my
+        secret string goes here&quot;<br>
+        <br>
+        set xin [dp_connect plugfilter -channel file100 -infilter
+        tclfilter]<br>
+        fconfigure $xin -inset MyTclProcedure<br>
+        <br>
+        dp_connect packoff -channel tcp10</tt></dt>
+</dl>
+
+<p>For more details, please refer to the tests/plugin2.test file
+in the standard distribution.</p>
+
+<p>&nbsp;</p>
+</body>
+</html>
+

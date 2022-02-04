@@ -1,0 +1,34 @@
+Tcl-DP 4.2 TODOs
+----------------
+
+Can only build with make or nmake.  This is because the IDEs like Eclipse
+or Visual Studio add the configuration name (like Release or Debug) to the
+path to libdp42.so (UNIX) or dp42.dll (Windows).  While this is proper IDE
+behavior, CMakeLists.txt is not set up to handle this variation in library
+path.
+
+IPM test hangs
+
+RPC test fails on Windows
+
+Several UDP tests fail in Windows.
+
+Look into removing compat/ and teki/
+
+
+Pre-4.1 TODOs
+-------------
+
+Add a better security model.  It would be nice to have 3.5's ability to check
+every line of an RPC as it is executed rather than a one-time check.
+
+HP9 fails TCP buffer tests.  I don't think the system will allow a socket
+    buffer < 8192 bytes.
+
+Several UDP tests fail in Windows.
+
+Sending a large (20k+) RPC hangs in Windows.
+
+Better documentation of obscure feature like oo.tcl.
+
+Abstract Teki so that both text- and GUI-installs are possible.

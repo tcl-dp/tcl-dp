@@ -1,0 +1,2119 @@
+<HTML>
+
+<HEAD>
+
+<TITLE>An Introduction To Tcl-DP</TITLE>
+
+<META NAME="GENERATOR" CONTENT="Internet Assistant for Microsoft Word 2.0z">
+</HEAD>
+
+<BODY>
+
+<H1><CENTER><A NAME="HDT0">An Introduction To Tcl-DP</A> </CENTER>
+</H1>
+
+<ADDRESS>
+<CENTER>Brian Smith, Cornell University (bsmith@cs.cornell.edu)</CENTER>
+</ADDRESS>
+
+<ADDRESS>
+<CENTER>Lawrence A. Rowe, University of California at Berkeley
+(larry@cs.berkeley.edu)</CENTER>
+</ADDRESS>
+
+<P>
+This document describes the Distributed Programming extension
+to Tcl/Tk, called Tcl-DP. Tcl-DP is a scripting language for writing
+client/server applications using Internet protocols and sockets.
+As with Tcl, the goal is ease of programming for applications,
+not maximal performance. In particular, Tcl-DP provides the following
+features: 
+<OL>
+<LI>Reliable Remote Procedure Call (RPC) 
+<LI>Automatic cleanup on file close and program exit 
+<LI>A name server for locating, starting, and authenticating servers.
+
+<LI>Event handling functions 
+<LI>Support for TCP, UDP, and IP-multicast transport protocols
+
+<LI>Socket configuration primitives 
+<LI>Interfaces to DNS lookup functions that map machine names
+to IP addresses. 
+</OL>
+
+<P>
+The following script will give you a feel for the power of Tcl-DP.
+It uses Tcl-DP's RPC functions to implement a trivial &quot;id
+server&quot; that returns unique identifiers in response to GetID
+requests:
+<PRE>
+<FONT SIZE=2>    set myId 0
+    proc GetId {} {
+        global myId
+        incr myId
+        return $myId
+    }
+    dp_MakeRPCServer 4545</FONT>
+</PRE>
+
+<P>
+All of the code in this script except the last line is ordinary
+Tcl code. It defines a global variable myId and a procedure GetId
+that increments the variable and returns the next id. The dp_MakeRPCServer
+command is part of Tcl-DP; it causes the application to listen
+for client requests on a TCP socket (port 4545).
+<P>
+Other Tcl applications communicate with this server using scripts
+that look like the following:
+<PRE>
+<FONT SIZE=2>    set server [dp_MakeRPCClient server.company.com 4545]
+    dp_RPC $server GetId</FONT>
+</PRE>
+
+<P>
+The first command opens a connection to the id server and saves
+a reference to the connection in the variable server. The arguments
+to dp_MakeRPCClient identify the server's host and the port on
+which the server is listening. The dp_RPC command, whose arguments
+are a connection and an arbitrary Tcl command, performs a remote
+procedure call. Dp_RPC forwards this command to the server, which
+executes the script and returns a result (a new id in this case).
+The value returned by the server is the value returned by the
+dp_RPC command.
+<P>
+Any command or script can be substituted in place of the GetId
+command. For example, the commands
+<PRE>
+<FONT SIZE=2>    dp_RPC $server info tclversion
+    dp_RPC $server info procs dp_*
+</FONT>
+</PRE>
+
+<P>
+return the version of Tcl that is running in the server process
+and all the Tcl-DP procedures in the server, respectively. Below,
+we will describe how a server can limit what machines can connect
+to it and what commands a client can execute.
+<P>
+Dp_RPC is similar to the send command in Tk. The primary difference
+is that send requires both processes to be connected to an X server
+to communicate, while dp_RPC can be run without an X server. Because
+dp_RPC does not use the X server for communication, it's faster
+than send -- 3 to 5 times faster for most commands.
+<H2>Getting started </H2>
+
+<P>
+This chapter is designed to be used interactively. That is, although
+you can just read the chapter, you will get more out of it by
+trying out the commands as you read them. In order to run Tcl-DP
+scripts, you must run a wish that has been extended with Tcl-DP.
+This extension can be retrieved from
+<PRE>
+<FONT SIZE=2>    ftp://ftp.cs.cornell.edu/pub/tcl-dp/tcl-dp3.3.tar.gz</FONT>
+</PRE>
+
+<P>
+The distribution includes source code, instructions and scripts
+to configure, compile, and install the system, and Unix manual
+pages and several examples that document the system. The files
+README and INSTALL describe the distribution and how to make it.
+<P>
+Once installed, you can use the shell application called dpwish
+to try out the commands in this chapter. Type the command
+<PRE>
+<FONT SIZE=2>    dpwish</FONT>
+</PRE>
+
+<P>
+to your shell to invoke dpwish, which behaves like an ordinary
+wish interpreter, reading commands from standard input and writing
+the results to standard output.
+<P>
+Since Tcl-DP is intended for communicating applications, a second
+dpwish simplifies the examples. In another window on your machine,
+start up a second dpwish. We will call the first interpreter &quot;A&quot;
+and the second &quot;B.&quot; To help you distinguish the interpreters,
+we recommend that you change the prompt of each interpreter. In
+A, use the following Tcl commands:
+<PRE>
+<FONT SIZE=2>    proc PromptA {} {puts -nonewline &quot;A% &quot;}
+    set tcl_prompt1 PromptA</FONT>
+</PRE>
+
+<P>
+Use these commands in B:
+<PRE>
+<FONT SIZE=2>    proc PromptB {} {puts -nonewline &quot;B% &quot;}
+    set tcl_prompt1 PromptB</FONT>
+</PRE>
+
+<P>
+The prompt for A and B should now be &quot;A%&quot; and &quot;B%&quot;,
+respectively. In the examples that follow, the prompt indicates
+in which dpwish the example commands are to be executed. We will
+refer to the processes as A and B.
+<P>
+The remainder of this chapter is divided into three sections.
+The first section summarizes Tcl-DP functions for creating client/server
+applications. After reading this section, you will be able to
+write robust distributed applications using Tcl-DP. The second
+section describes the socket level communication primitives in
+Tcl-DP. After reading this section, you will know how to use sockets
+and event handling. The third section describes the Tcl-DP distributed
+object system. 
+<P>
+We assume that the reader is already familiar with Tcl/Tk.If not,
+the books by John Ousterhout and Brent Welch [ref,ref] provide
+excellent introductions. We also assume the user is familiar with
+the basic properties of Internet protocols like TCP/IP and UDP/IP,
+and has a superficial understanding of the Berkeley socket abstraction.
+The book by Stevens [ref] provides more information than you need
+to know on these topics.
+<P>
+Each section alternates between presenting a group of Tcl-DP functions
+and integrating them into an example program (a distributed whiteboard)
+that shows them in use.
+<H2>Client/Server Architectures in Tcl-DP </H2>
+
+<P>
+The most important feature of Tcl-DP is that it simplifies the
+creation of client/server applications. For example, the following
+commands make A a server:
+<PRE>
+<FONT SIZE=2>A% dp_MakeRPCServer 4567
+4567</FONT>
+</PRE>
+
+<P>
+Dp_MakeRPCServer turns a process into a server listening on port
+4567. The system will select a port number for you if you omit
+the port number or specify 0 as the port number. The chosen port
+number is returned, whether or not you specify it. The machine
+and process configuration is show in figure 1(A).
+<P>
+A client connects to a Tcl-DP server using the dp_MakeRPCClient
+command. Dp_MakeRPCClient takes two arguments: 1) the machine
+on which the server is running and 2) the port number on which
+the server will listen for client connection requests. For example,
+suppose the name of the machine that A is running on is mayo.sandwich.com.
+The following command will make B a client of A.
+<PRE>
+<FONT SIZE=2>B% set server [dp_MakeRPCClient mayo.sandwich.com 4567]
+file4
+B%</FONT>
+</PRE>
+
+<P>
+The return value of dp_MakeRPCClient, file4 in this example, is
+an identifier for the connection between the client and the server.
+The exact value of the identifier may be slightly different on
+your machine.
+<P>
+When A receives the connection request on port 4567, it opens
+a new file in the server that handles incoming dp_RPC requests.
+This leaves port 4567 free for accepting requests from other clients.
+Figure 1(B) show the machine and process architecture after the
+connection is established.
+<P>
+You can execute a Tcl command in the remote interpreter using
+this identifier as an argument to the dp_RPC command. For example,
+the following command prints &quot;hello&quot; in A's window:
+<HR>
+
+<P>
+<CENTER><A NAME="REF28602"><IMG SRC="tcl_book.fig_32.gif" width="609" height="164"></A></CENTER>
+<P>
+<CENTER>Figure 1: Connection setup </CENTER>
+<HR>
+
+<PRE>
+<FONT SIZE=2>B% dp_RPC $server puts hello</FONT>
+</PRE>
+
+<P>
+The extra arguments to dp_RPC (after $server) can be any Tcl command.
+For example, the following RPC creates a procedure in A that returns
+the first line in a file.
+<PRE>
+<FONT SIZE=2>B% dp_RPC $server proc ReadFirstLine {filename} {
+    set f [open $filename r]
+    set firstline [gets $f]
+    close $f
+    return $firstline
+}</FONT>
+</PRE>
+
+<P>
+If B executes the following command, the variable x in B will
+contain the first line of the file/etc/passwd on A.
+<PRE>
+<FONT SIZE=2>B% set x [dp_RPC $server ReadFirstLine /etc/passwd]
+root:r.shdrfURbfwu:0:0:Operator:/:/bin/csh</FONT>
+</PRE>
+
+<P>
+This example shows an important feature of dp_RPC: the value returned
+by the dp_RPC call is the value returned by the command executed
+on A. As another example, the following sequence of commands creates
+a variable x in A, computes 8 times its value, and assigns the
+result to the variable y in B:
+<PRE>
+<FONT SIZE=2>B% dp_RPC $server set x 5
+5
+B% set y [dp_RPC $server expr {8*$x}]
+40</FONT>
+</PRE>
+
+<P>
+The curly braces in the dp_RPC call are needed to prevent the
+Tcl interpreter in B from substituting the local value of x, which
+contains the first line of /etc/passwd. 
+<P>
+If an error occurs while executing an RPC, dp_RPC sets the errorInfo
+and errorCode variables in the originating interpreter and returns
+with an error. For example, the following call to dp_RPC triggers
+an error since ReadFirstLine requires a file name as a parameter.
+<PRE>
+<FONT SIZE=2>B% set line1 [dp_RPC $server ReadFirstLine]
+no value given for parameter &quot;filename&quot; to &quot;ReadFirstLine&quot;</FONT>
+</PRE>
+
+<P>
+The error is signaled using the standard Tcl mechanisms, exactly
+as if you had calledReadFirstLine locally. For example, the error
+can be trapped using the Tcl catch command:
+<PRE>
+<FONT SIZE=2>if [catch {dp_RPC $server ReadFirstLine /does/not/exist} line1] {
+    # Handle error any way you want...
+    puts &quot;Caught error: $errorInfo&quot;
+    puts &quot;line1: $line1&quot;
+}
+Caught error: couldn't open &quot;/does/not/exist&quot;: No such file or direc
+tory
+    while executing
+&quot;open $filename r&quot;
+    invoked from within
+&quot;set f [open $filename r]...&quot;
+    (procedure &quot;ReadFirstLine&quot; line 2)
+    invoked from within
+&quot;ReadFirstLine /does/not/exist&quot;
+    invoked from within
+
+&quot;dp_RPC $server ReadFirstLine /does/not/exist&quot;
+line1: couldn't open &quot;/does/not/exist&quot;: No such file or directory</FONT>
+</PRE>
+
+<P>
+The examples thus far have shown how a client uses dp_RPC to execute
+a command in a server. Now suppose the server needs to execute
+a command in a client. This function might be used, for instance,
+to build an application that supports a publish/subscribe paradigm.
+Clients contact the server to subscribe to a database, and servers
+issue callbacks to the clients when the database is updated. The
+server can use dp_RPC to issue such a callback, but in order to
+do so the server needs a connection identifier such as $server.
+Where does the server get the identifier for a client? The answer
+is from the dp_rpcFile variable.
+<P>
+Whenever Tcl-DP processes an RPC, it sets a global variable, named
+dp_rpcFile, to the connection identifier of the incoming RPC for
+the duration of the call. Servers can use dp_rpcFile to identify
+the source of the call, which can be used to contact the client
+later.
+<P>
+For example, suppose you want to write a server that supports
+the publish/subscribe paradigm. The server must maintain a list
+of all clients that have subscribed. The following code uses a
+Subscribe procedure that clients may call to subscribe to the
+database which will build this list.
+<PRE>
+<FONT SIZE=2>A% set clientList {}
+A% proc Subscribe {} {
+    global dp_rpcFile clientList
+    if {[lsearch $clientList $dp_rpcFile] == -1} {
+        lappend clientList $dp_rpcFile
+    }
+}</FONT>
+</PRE>
+
+<P>
+After one or more clients have subscribed, the server can use
+the following code to broadcast a message to all its subscribers:
+<PRE>
+<FONT SIZE=2>A% proc Publish {msg} {
+    global clientList
+    foreach c $clientList {
+        dp_RPC $c puts $msg
+    }
+}</FONT>
+</PRE>
+
+<P>
+This example brings up a subtle point that can cause your client/server
+application to deadlock. To illustrate, suppose A contains the
+following procedure:
+<PRE>
+<FONT SIZE=2>A% proc Greeting {msg} {
+    global dp_rpcFile
+    puts $msg
+    dp_RPC $dp_rpcFile puts &quot;Pleased to meet you&quot;
+}</FONT>
+</PRE>
+
+<P>
+Now suppose B issues the following call:
+<PRE>
+<FONT SIZE=2>B% dp_RPC $server Greeting &quot;Hello there&quot;</FONT>
+</PRE>
+
+<P>
+The expected behavior is that &quot;Hello there&quot; will appear
+in A's window, and &quot;Pleased to meet you&quot; will appear
+on B's. Instead, both A and B hang because, while waiting for
+dp_RPC to return, B blocks. But, while processing the Greeting
+call, A issues a dp_RPC to B which cases it to block. Since B
+is stopped waiting for A, and A is stopped waiting for B, the
+system is <I>deadlocked</I>, as shown in figure 2.
+<HR>
+
+<P>
+<CENTER><IMG SRC="tcl_book.fig_42.gif" width="618" height="137"></CENTER>
+<P>
+<CENTER>Figure 2: Deadlock </CENTER>
+<HR>
+
+<P>
+Tcl-DP provides three mechanisms to prevent deadlock 
+<UL>
+<LI>the -events option of dp_RPC 
+<LI>the -timeout option of dp_RPC, and 
+<LI>the dp_RDO procedure. 
+</UL>
+
+<P>
+We will discuss each mechanism in turn.
+<P>
+The first way to prevent deadlock is to force processes to respond
+to inbound RPC requests while waiting for a previously issued
+requests to return. If this feature was used in the example above,
+B would process the puts &quot;Pleased to meet you&quot; call
+from A while waiting for the dp_RPC call to return. Thus, A's
+RPC to B would return, allowing the remote call to Greeting to
+return, so that B's RPC to A would return. The key to implementing
+this strategy is to get B to process incoming RPC's while waiting
+for an outstanding RPC to return.
+<P>
+Dp_RPC will process inbound RPCs while waiting for an outbound
+RPC to complete if it is called with the -events option. In other
+words, if we used the following code to call Greeting on A, the
+system won't deadlock:
+<PRE>
+<FONT SIZE=2>B% dp_RPC $server -events rpc Greeting &quot;Hello there&quot;</FONT>
+</PRE>
+
+<P>
+The -events option allows B to process inbound dp_RPC calls, but
+B will be unresponsive to other Tk events, such as events from
+the window system (e.g., requests to redraw the screen) and timer
+events (created using the after command in Tk).
+<P>
+To make B responsive to other events while in an RPC, the -events
+option can be passed a list of event types which B should continue
+to process while waiting for the RPC to return. Table 1 lists
+the event types that can be processed with -events. For example,
+to force B to continue processing events generated by the X window
+system while waiting for a response from A, the x event type is
+used:
+<PRE>
+<FONT SIZE=2>B% dp_RPC $server -events x Subscribe</FONT>
+</PRE>
+
+<P>
+To process timer events, use timer as the event type:
+<PRE>
+<FONT SIZE=2>B% dp_RPC $server -events timer Subscribe</FONT>
+</PRE>
+
+<P>
+To process multiple event types, such as RPCs and X events, pass
+a list to -events.
+<PRE>
+<FONT SIZE=2>B% dp_RPC $server -events {rpc x} Subscribe</FONT>
+</PRE>
+
+<P>
+Finally, to process all events, use the event type all:
+<PRE>
+<FONT SIZE=2>B% dp_RPC $server -events all Subscribe
+</FONT>
+</PRE>
+
+<TABLE>
+
+<TR><TD WIDTH=103>
+<PRE>
+<CENTER><B>Event</B></CENTER>
+</PRE>
+
+</TD><TD WIDTH=583>
+<PRE>
+<CENTER><B>Meaning</B></CENTER>
+</PRE>
+
+</TD></TR>
+
+<TR><TD WIDTH=103>
+<PRE>
+<FONT SIZE=2>x</FONT>
+</PRE>
+</TD>
+<TD WIDTH=583>
+<PRE>
+Events from the X window system (created with Tk's bind command
+</PRE>
+
+</TD></TR>
+
+<TR><TD WIDTH=103>
+<PRE>
+<FONT SIZE=2>file</FONT>
+</PRE>
+
+</TD><TD WIDTH=583>
+<PRE>
+Events that occur on a file or socket (created with Tcl-DP's dp_filehandler command).                                                      
+</PRE>
+
+</TD></TR>
+
+<TR><TD WIDTH=103>
+<PRE>
+<FONT SIZE=2>rpc</FONT>
+</PRE>
+</TD>
+<TD WIDTH=583>
+<PRE>
+Same as the file event type                                                   
+</PRE>
+
+</TD></TR>
+
+<TR><TD WIDTH=103>
+<PRE>
+<FONT SIZE=2>timer</FONT>
+</PRE>
+
+</TD><TD WIDTH=583>
+<PRE>
+Timer events (created with Tk's after command)                                
+</PRE>
+
+</TD></TR>
+
+<TR><TD WIDTH=103>
+<PRE>
+<FONT SIZE=2>idle</FONT>
+</PRE>
+
+</TD><TD WIDTH=583>
+<PRE>
+Events that correspond to when-idle events (such as display updates, window layout calculations, and tasks schedules with dp_whenidle)                    
+</PRE>
+
+</TD></TR>
+
+<TR><TD WIDTH=103>
+<PRE>
+<FONT SIZE=2>all</FONT>
+</PRE>
+</TD>
+<TD WIDTH=583>
+<PRE>
+<FONT SIZE=2>Same as the list {x file timer idle}                                          </FONT>
+</PRE>
+
+</TD></TR>
+
+<TR><TD WIDTH=103>
+<PRE>
+<FONT SIZE=2>none</FONT>
+</PRE>
+
+</TD><TD WIDTH=583>
+<PRE>
+Don't process any events; block                                               
+</PRE>
+
+</TD></TR>
+
+</TABLE>
+
+<P>
+A second way to prevent deadlock is to use the -timeout option
+to dp_RPC. If the dp_RPC call does not return within the specified
+timeout, which is given in milliseconds, dp_RPC returns with an
+error. Since it can trigger an error, -timeout is typically used
+in combination with Tcl's catch command. For example, the following
+code calls the Subscribe procedure on A, but prints a message
+on the screen if A does not respond within 100 milliseconds.
+<PRE>
+<FONT SIZE=2>B% if [catch {dp_RPC $server -timeout 100 Subscribe}] {
+    puts &quot;Couldn't register with server&quot;
+}</FONT>
+</PRE>
+
+<P>
+As an alternative to catching the error, you can use the -timeoutReturn
+option to specify a fragment of Tcl code to be executed if the
+dp_RPC call times out. The code is called with the connection
+id of the failed callback appended. The example above could be
+expressed like this
+<PRE>
+<FONT SIZE=2>B% proc HandleTimeout {file} {
+    puts &quot;Couldn't register with server&quot;
+}
+B% dp_RPC $server -timeout 100 -timeoutReturn HandleTimeout Subscribe</FONT>
+</PRE>
+
+<P>
+The third way to prevent deadlock in Tcl-DP is to use a non-blocking
+RPC rather than a blocking RPC. The command dp_RDO, which stands
+for &quot;remote do,&quot; initiates the RPC but does not wait
+for a response from the remote interpreter. Instead, it simply
+sends a message containing the request to the remote interpreter
+and immediately processes the next command in the script.
+<P>
+Dp_RDO is ideal for procedure calls that are used for their side
+effects rather than their return values. The Subscribe procedure
+given above is an example of such a procedure. The purpose in
+calling Subscribe is not to get a return value, in fact, it does
+not return a value, but rather to modify a global variable in
+the server. Whenever a procedure is called that does not return
+a useful value, it can be called with dp_RDO instead of dp_RPC.
+For example, the following calls Subscribe procedure using dp_RDO:
+<PRE>
+<FONT SIZE=2>B% dp_RDO $server Subscribe</FONT>
+</PRE>
+
+<P>
+Besides preventing deadlock, dp_RDO is also more efficient than
+dp_RPC. The difference can be dramatic. Depending on the distance
+to the remote site, the load on the network, and the responsiveness
+of the server, dp_RPC can take anywhere from 2 to 200 milliseconds
+(or more!) to complete. In contrast, dp_RDO typically returns
+within a fraction of a millisecond. Moreover, dp_RDO reduces load
+on the network, client, and server, since the server does not
+send back a response, the client does not process a response,
+and the network does not transport the response. That is, assuming
+the application does not request a return value using the -callback
+option, described below.
+<P>
+Another consequence of using dp_RDO is that the client and server
+can run in parallel. For example, in its initialization code,
+a typical client of our server will create a user interface and
+subscribe to the server database. A typical calling sequence might
+look like:
+<PRE>
+<FONT SIZE=2>B% dp_RPC $server Subscribe
+B% CreateUserInterface</FONT>
+</PRE>
+
+<P>
+By replacing the dp_RPC call in the second line with dp_RDO, the
+client can create the user interface while the server executes
+the Subscribe code.
+<P>
+Dp_RDO has two important options: -callback and -onerror. The
+-callback option is used when the return value from the remote
+procedure call is of interest to the client, but you want to use
+the parallelism provided by dp_RDO. For example, suppose we modify
+the Subscribe procedure to return a subscription code that the
+client uses to identify itself to the server.
+<PRE>
+<FONT SIZE=2>A% set code 0
+0
+A% proc Subscribe {} {
+    global dp_rpcFile clientList code
+    if {[lsearch $clientList $dp_rpcFile] == -1} {
+        lappend clientList $dp_rpcFile
+    }
+    incr code
+    return $code
+}</FONT>
+</PRE>
+
+<P>
+You might think that the client can not use dp_RDO to call Subscribe
+because it needs to return a value to the caller. The -callback
+flag to dp_RDO is designed to handle this case. The argument to
+-callback is a Tcl script that is evaluated in the client with
+the return value from the remote call appended. For example, the
+following code calls the modified Subscribe procedure using dp_RDO
+and sets the local variable scode to the subscription code:
+<PRE>
+<FONT SIZE=2>B% dp_RDO $server -callback {set scode} Subscribe
+B% CreateUserInterface</FONT>
+</PRE>
+
+<P>
+When Subscribe completes, the Tcl fragment set scode is evaluated
+in B with the new identifier appended.
+<P>
+One problem that can arise using -callback is synchronizing the
+client and server. For example, suppose the client, after creating
+the user interface, must execute the Ready procedure on the server
+which takes the identifier returned from the Subscribe function
+as an argument.
+<PRE>
+<FONT SIZE=2>B% proc Setup {} {
+    global server scode
+    
+    dp_RDO $server -callback {set scode} Subscribe
+    dp_RDO $server puts $scode
+}
+B% Setup
+can't read &quot;scode&quot;: no such variable</FONT>
+</PRE>
+
+<P>
+This code fails on the second dp_RDO because the client has not
+processed the callback of the first dp_RDO, which sets the scode
+variable. This problem is called a client/server <I>synchronization
+problem</I>. To understand the solution to the synchronization
+problem, we must take a brief detour into the implementation of
+Tcl-DP.
+<P>
+Tcl-DP uses TCP sockets for dp_RDO and dp_RPC. In Unix, sockets
+are represented by files which are <I>readable</I> when the socket
+has data waiting to be read. Tk contains a mechanism, called <I>file
+handlers</I>, that automatically invokes a C callback function
+whenever a file is <I>readable</I>. The callback is issued from
+the Tk_DoOneEvent function, which invokes callbacks in response
+to X window events, file events, and timer events.
+<P>
+Tcl-DP uses file handlers and TCP sockets to implement the RPC
+mechanisms. In particular, dp_MakeRPCClient creates a socket and
+a file handler on the socket that reads strings that come in on
+the socket, evaluates them as Tcl commands, and returns the result.
+But the file handler associated with a Tcl-DP socket is not invoked
+until the client calls Tk_DoOneEvent.
+<P>
+The implementation of -onerror and -callback use dp_RDO. In the
+example above, A uses dp_RDO to set scode in B. Since the response
+by A is passed to B using dp_RDO, scode is not set until the client
+calls Tk_DoOneEvent. So, to solve the synchronization problem,
+we have to call Tk_DoOneEvent until the server's response is received.
+<P>
+Tcl-DP provides two Tcl commands to call Tk_DoOneEvent: dp_update
+and dp_waitvariable. Dp_update calls Tk_DoOneEvent repeatedly
+until no X, timer, or file events are pending. Dp_waitvariable
+calls Tk_DoOneEvent until a specified variable changes value.
+The solution to the synchronization problem above can use dp_waitvariable:
+<PRE>
+<FONT SIZE=2>B% proc Setup {} {
+    global server scode
+    dp_RDO $server -callback {set scode} Subscribe
+    dp_waitvariable scode
+    dp_RDO $server puts $scode
+}
+B% Setup</FONT>
+</PRE>
+
+<P>
+Dp_waitvariable calls Tk_DoOneEvent repeatedly until scode changes
+value, which happens when the server sends back the subscription
+identifier.
+<P>
+In addition to the -callback option, dp_RDO has an -onerror option
+that specifies a Tcl fragment that will be evaluated if the remote
+procedure call terminates with an error. This option can be used,
+for example, to trap errors that occur in the remote execution
+of dp_RDO. To see -onerror in action, try the following fragment:
+<PRE>
+<FONT SIZE=2>B% dp_RDO $server -onerror puts Greeting arg1 arg2</FONT>
+</PRE>
+
+<P>
+Since the Greeting procedure only takes one argument, this dp_RDO
+call will trigger an error, which will be printed on the screen
+using puts. 
+<P>
+The final topic in this section describes how to close connections.
+Since the connection identifier is an ordinary file descriptor,
+the Tcl close command can be used to terminate the connection.
+For example, the command
+<PRE>
+<FONT SIZE=2>B% close $server</FONT>
+</PRE>
+
+<P>
+shuts down the connection between B and A.
+<H3>An Extended Example </H3>
+
+<P>
+To show how the functions described in this section are used in
+an application, we will show you how to build a simple distributed
+whiteboard. Before showing how this application works across a
+network, it is simplest to learn how the non-distributed version
+works.
+<P>
+The Tk code for a stand-alone whiteboard, which can be found in
+the file wb.tcl in the examples/whiteboard subdirectory in the
+Tcl-DP distribution, is shown in figure 4. This code creates a
+canvas and a menu bar, as shown in figure 3. The functions CreateRect
+and CreateCircle create rectangles and circles on the canvas.
+The function Clear deletes all objects on the canvas. The functions
+PlotDown and PlotMove work together to move a previously created
+circle.<BR>
+
+<HR>
+
+<P>
+<CENTER><IMG SRC="IMG00003.GIF" width="363" height="306"></CENTER>
+<P>
+<CENTER>Figure 3: A simple whiteboard </CENTER>
+<HR>
+
+<PRE>
+<FONT SIZE=2>#!/usr/local/bin/wish -f
+</FONT><FONT SIZE=1 FACE="Courier New">wm grid . 1 1 1 1
+
+</FONT><FONT SIZE=2 FACE="Courier New"># Create menu bar:
+frame .menubar -relief ridge
+menubutton .menubar.file -text &igrave;File&icirc; -menu .menubar.file.menu
+pack .menubar.file -side left
+menubutton .menubar.object -text &igrave;Objects&icirc; -menu .menubar.object.menu
+pack .menubar.object -side left
+pack .menubar -side top -fill both
+menu .menubar.file.menu
+.menubar.file.menu add command -label &igrave;Exit&icirc;  -command exit
+menu .menubar.object.menu
+.menubar.object.menu add command -label &igrave;Clear&icirc; -command &igrave;.c delete all&icirc;
+.menubar.object.menu add command -label &igrave;Circle&icirc; -command &igrave;CreateCircle&icirc;
+
+# Create canvas, procs, bindings
+canvas .c -background green
+pack .c -fill both
+
+proc CreateRect {x y} {
+    .c create rectangle $x $y $x $y -width 4 -outline white
+}
+proc CreateCircle {} {
+    set i [.c create oval 150 150 170 170 -fill skyblue]
+    .c bind $i &lt;Any-Enter&gt; &igrave;.c itemconfig $i -fill red&icirc;
+    .c bind $i &lt;Any-Leave&gt; &igrave;.c itemconfig $i -fill SkyBlue2&icirc;
+    .c bind $i &lt;2&gt; &igrave;PlotDown .c $i %x %y&icirc;
+    .c bind $i &lt;B2-Motion&gt; &igrave;PlotMove .c $i %x %y&icirc;
+</FONT><FONT SIZE=1 FACE="Courier New">}
+proc Clear {} {.c delete all}
+proc PlotDown {w item x y} {
+    global plot
+    $w raise $item
+    set plot(lastX) $x
+    set plot(lastY) $y
+}
+proc PlotMove {w item x y} {
+    global plot
+    $w move $item [expr $x-$plot(lastX)] [expr $y-$plot(lastY)]
+    set plot(lastX) $x
+    set plot(lastY) $y
+}
+
+bind .c &lt;B1-Motion&gt; {CreateRect %x %y}</FONT>
+</PRE>
+
+<HR>
+
+<P>
+<CENTER><FONT COLOR=#000000 FACE="Times">Figure 4: A Simple Tcl/Tk
+Whiteboard
+</FONT></CENTER>
+<P>
+The whiteboard is used as follows. To create rectangles, press
+the left button down in the main window and move the mouse while
+holding the button down. A trail of small, 4 by 4 pixel, squares
+will follow the mouse on the canvas. Internally, this response
+is implemented by binding (at line 51) the Button-1-motion event
+to call the CreateRect function. 
+<P>
+To create a circle, select the Circle menu item in the Object
+menu. You can move the circle to a new position by pressing the
+middle button down while the mouse is over the circle and moving
+the mouse. To clear the whiteboard, select the Clear menu item
+in the Object menu.
+<P>
+This code can be adapted to a shared whiteboard by broadcasting
+every change to the canvas, whether through bindings or procedure
+calls, to the other whiteboards. To handle the broadcasts, we
+will use a centralized server process as a reflector. Each client
+connects and subscribes to the whiteboard. The clients and server
+form a &quot;star&quot; with the server at the center as shown
+in figure 5. When a client wants to execute a whiteboard command,
+it sends the command to the server, which broadcasts the command
+to all the clients, where they are executed.
+<HR>
+
+<P>
+<CENTER><IMG SRC="tcl_book.fig_3.gif" width="363" height="116"></CENTER>
+<P>
+<CENTER>Figure 5: Architecture of the shared whiteboard example
+</CENTER>
+<HR>
+
+<P>
+The Tcl-DP code to create the server is shown in figure 6. The
+call to dp_MakeRPCServer on line 2 initializes the server and
+listens for connections from clients on port 4544. A client connect
+to the whiteboard by executing dp_MakeRPCClient and calling the
+Subscribe procedure. The server maintains a list of all clients
+connected in the global variable clients and a history of all
+whiteboard commands in the global variable log. When a new client
+is added, the commands in the log are sent to the new client so
+that it's display is brought up to date with the other clients.
+The command Publish is called when a client executes a whiteboard
+command. It writes the command to the log and broadcasts the command
+to all the clients.
+<HR>
+
+<PRE>
+<FONT SIZE=2>#!/usr/local/bin/dpwish -f
+</FONT><FONT SIZE=1 FACE="Courier New">dp_MakeRPCServer 4544
+
+set clients {}
+set log {}
+
+proc Subscribe {} {
+    global dp_rpcFile clients log
+    lappend clients $dp_rpcFile
+    foreach cmd $log {
+	eval dp_RDO $dp_rpcFile $cmd
+    }
+}
+
+proc Publish {args} {
+    global clients log
+    lappend log $args
+    foreach i $clients {
+	eval &igrave;dp_RDO $i $args&icirc;
+    }
+}</FONT>
+</PRE>
+
+<P>
+<CENTER><FONT COLOR=#000000 FACE="Times">Figure 6: Tcl-DP Shared
+Whiteboard Server</FONT></CENTER>
+<HR>
+
+<P>
+The modified client code is shown in figure 7, with the modified
+code in boldface. Lines 2-5 connect the client to the server.
+The DoCmd procedure defined in lines 6-9 uses dp_RDO to call Publish
+in the server, which sends whiteboard commands to the clients.
+The CreateRect, CreateCircle, and Clear routines use DoCmd.
+<HR>
+
+<PRE>
+<FONT SIZE=2>#!/usr/local/bin/dpwish -f
+puts &quot;Enter hostname of server:&quot;
+gets stdin host
+set server [dp_MakeRPCClient $host 4544]
+dp_RDO $server Subscribe
+proc DoCmd {args} {
+    global server
+    eval dp_RDO $server Publish $args
+}
+wm grid . 1 1 1 1
+
+# Create menu bar:
+frame .menubar -relief ridge
+menubutton .menubar.file -text &quot;File&quot; -menu .menubar.file.menu
+pack .menubar.file -side left
+menubutton .menubar.object -text &quot;Objects&quot; -menu .menubar.object.menu
+pack .menubar.object -side left
+pack .menubar -side top -fill both
+menu .menubar.file.menu
+.menubar.file.menu add command -label &quot;Exit&quot;  -command exit
+menu .menubar.object.menu
+.menubar.object.menu add command -label &quot;Clear&quot; -command &quot;DoCmd .c delete all&quot;
+.menubar.object.menu add command -label &quot;Circle&quot; -command &quot;DoCmd CreateCircle&quot;
+
+# Create canvas, procs, bindings
+canvas .c -background green
+pack .c -fill both
+
+proc CreateRect {x y} {
+	DoCmd .c create rectangle $x $y $x $y -width 4 -outline white
+}
+proc CreateCircle {} {
+	set i [.c create oval 150 150 170 170 -fill skyblue]
+	.c bind $i &lt;Any-Enter&gt; &quot;DoCmd .c itemconfig $i -fill red&quot;
+	.c bind $i &lt;Any-Leave&gt; &quot;DoCmd .c itemconfig $i -fill SkyBlue2&quot;
+	.c bind $i &lt;2&gt; &quot;DoCmd plotDown .c $i %x %y&quot;
+	.c bind $i &lt;B2-Motion&gt; &quot;DoCmd plotMove .c $i %x %y&quot;
+}
+proc Clear {} {DoCmd .c delete all}
+proc plotDown {w item x y} {
+	global plot
+	$w raise $item
+	set plot(lastX) $x
+	set plot(lastY) $y
+}
+proc plotMove {w item x y} {
+	global plot
+	$w move $item [expr $x-$plot(lastX)] [expr $y-$plot(lastY)]
+	set plot(lastX) $x
+	set plot(lastY) $y
+}
+
+bind .c &lt;B1-Motion&gt; {CreateRect %x %y}</FONT>
+</PRE>
+
+<P>
+<CENTER><FONT COLOR=#000000 FACE="Times">Figure 7: Tcl-DP Shared
+Whiteboard Client</FONT></CENTER>
+<HR>
+
+<H3>Security </H3>
+
+<P>
+One problem with this server is that any client can connect, and
+a connected client can execute any command. Tcl-DP uses two mechanisms
+to handle these two different security holes. 
+<P>
+The first level of defense Tcl-DP provides is an optional &quot;login&quot;
+procedure that can be supplied with the dp_MakeRPCServer command,.
+This procedure allow a server to specify a Tcl procedure that
+will be executed when a client connects to the server. The procedure
+is called with the file handle and IP address of the new client
+(e.g., file4 and 128.32.133.117) as arguments. For example, the
+following server logs all connection requests to a file.
+<PRE>
+<FONT SIZE=2>A% set logFile [open /tmp/connect.log w]
+A% proc LogConnection {file addr} {
+    global logFile
+    puts $logFile &quot;Connection accepted from $addr on $file&quot;
+}
+A% dp_MakeRPCServer 4545 LogConnection</FONT>
+</PRE>
+
+<P>
+The login procedure can be used to prevent illegal connections.
+If the connection is determined illegal, the login procedure should
+return an error. For example, the following server only allows
+connections from hosts in the 128.32.134 subnet.
+<PRE>
+<FONT SIZE=2>A% proc CheckConnection {file addr} {
+    if {[string match $addr 128.32.134.*] != 1]} {
+        error &quot;Host not authorized&quot;
+    }
+}
+A% dp_MakeRPCServer 4545 CheckConnection</FONT>
+</PRE>
+
+<P>
+The default login procedure for Tcl-DP is dp_CheckHost, which
+provides a simple access control list mechanism, similar to xhost
+in the X window system, for limiting connections to a set of IP
+host addresses. The access control list is modified by the dp_host
+command. For example, the following Tcl-DP commands allow connections
+from machines in the 128.32.134 subnet except 128.32.134.117,
+or from the machine named mayo.sandwich.com.
+<PRE>
+<FONT SIZE=2>A% dp_host -
+A% dp_host +128.32.134.*
+A% dp_host -128.32.134.117
+A% dp_host +mayo.sandwich.com
+A% dp_MakeRPCServer 4567</FONT>
+</PRE>
+
+<P>
+By default, connections from any host are allowed (equivalent
+to dp_host +). The dp_host command and its associated loginFunc
+are implemented entirely in Tcl. They can be found in the file
+$dp_library/acl.tcl in the distribution. This code can be used
+as an example for building more complex login security functions.
+For example, a server could maintain a list of authorized users
+and passwords and require a client to explicitly login. Or, a
+server could use a system such as PGP or Kerberos to authenticate
+clients.
+<P>
+The login procedure can prevent rogue users from accessing a server,
+but even innocent users can accidentally run commands with horrible
+side effects. Such mistakes are particularly disastrous if the
+server is running as root. For example, we all want to stop someone
+from accidentally running
+<PRE>
+<FONT SIZE=2>B% dp_RDO $server exec rm -rf /</FONT>
+</PRE>
+
+<P>
+To prevent such catastrophes, dp_MakeRPCServer takes a second
+optional argument, called the <I>check command</I>, which checks
+each command from a dp_RPC or dp_RDO call before it is run. The
+return code from the check command specifies whether to disallow
+the command, to continue checking sub commands, or to allow the
+command to be executed with no further checking. If the procedure
+returns a normal value, the command is allowed and no further
+checking is performed. If the option -code break is used with
+the return, the command is disallowed. If -code continue is used,
+the command is allowed but nested commands are checked. Notice
+that the nested checking allows commands such as
+<PRE>
+<FONT SIZE=2>B% dp_RPC $server eval rm -rf /</FONT>
+</PRE>
+
+<P>
+to be caught.
+<P>
+To illustrate the use of check commands, the following code defines
+a procedure that allows puts to be run on standard error, set
+to be run with one argument, Subscribe to be run with now further
+checking, and eval, catch, and if to be run with embedded command
+checking. All other commands are disallowed.
+<PRE>
+<FONT SIZE=2>A% proc CheckCmd {cmd args} {
+    case $cmd in {
+        Subscribe return;
+        puts {
+            set file [lindex $args 0]
+            if {[string compare $file stderr] != 0]} {
+                return -code break
+            }
+            return;
+        }
+        set {
+            if {[llength $args] != 1} {
+                return -code break
+            }
+            return;
+        }
+        eval {return -code continue}
+        catch {return -code continue}
+        if {return -code continue}
+    }
+    return -code break;
+}</FONT>
+</PRE>
+
+<P>
+We will now use both features to make the whiteboard program more
+secure. We will only allow clients whose IP-address is in the
+whiteboard-clients file to connect, and we will verify that the
+clients are executing legal commands. The modified code is shown
+in figure 8.
+<HR>
+
+<PRE>
+<FONT SIZE=2># Set the list of allowed clients from whiteboard-clients
+</FONT><FONT SIZE=1>set f [open whiteboard-clients r]
+</FONT><FONT SIZE=1>dp_host -
+</FONT><FONT SIZE=1>while {[get $f host] != -1} {
+</FONT><FONT SIZE=1>    dp_host +$host
+</FONT><FONT SIZE=1>}
+</FONT><FONT SIZE=1>close $f
+
+</FONT><FONT SIZE=1># The only allowed commands are Subscribe and Publish
+</FONT><FONT SIZE=1>proc WhiteboardCmdCheck {cmd args} {
+</FONT><FONT SIZE=1>    case $cmd in {
+</FONT><FONT SIZE=1>        Subscribe return
+</FONT><FONT SIZE=1>        Publish return
+</FONT><FONT SIZE=1>    }
+</FONT><FONT SIZE=1>    return -code break;
+</FONT><FONT SIZE=1>}
+
+</FONT><FONT SIZE=1>dp_MakeRPCServer 4545 dp_CheckHost WhiteboardCmdCheck</FONT>
+</PRE>
+
+<P>
+<CENTER><FONT COLOR=#000000 FACE="Times">Figure 8: Extra Commands
+for Secure Tcl-DP Shared Whiteboard Server</FONT></CENTER>
+<HR>
+
+<P>
+Of course, the server can still execute commands in the client.
+This capability can cause problems in environments where the user
+can not verify that a server is authentic. For example, a client
+can innocently connect to a server and the server can remove all
+files in the client environment. To allow inbound RPC's to be
+checked on any socket (client side or server side), use the dp_SetCheckCmd
+function. For example, to add client side command checking, the
+client can execute the following command:
+<PRE>
+<FONT SIZE=2>dp_SetCheckCmd $server ClientCheckCommand</FONT>
+</PRE>
+
+<P>
+where ClientCheckCommand is a command checking procedure similar
+to WhiteboardCmdCheck in figure 8. Alternatively, the client check
+command can be specified when the connection is made: 
+<PRE>
+<FONT SIZE=2>set server [dp_MakeRPCClient $host 4544 ClientCheckCommand]</FONT>
+</PRE>
+
+<H3>Cleanup </H3>
+
+<P>
+In distributed programs like the whiteboard example, clients and
+servers crash or shutdown without warning. These crashes can cause
+unexpected, often fatal, errors to occur. For example, if a whiteboard
+client dies unexpectedly, the server wants to remove the client
+from the clients variable. The dp_atclose command is designed
+to handle such clean up actions automatically.
+<P>
+Dp_atclose associates a list of Tcl commands with a file. Just
+before the file is closed, which happens automatically if a connection
+is broken, each command in the list is called. The first argument
+to dp_atclose is a file identifier (e.g., $server) that specifies
+the target file or connection and the second argument is a command.
+Valid commands are: append, remove, appendUnique, insert, and
+list. Append adds a new callback to the end of the list. Remove
+deletes a previous appended callback. AppendUnique adds a callback
+to the end of the list, but only if it is not already part of
+the list. Insert places a callback at the beginning of the list,
+and list returns the current callback list. The table below lists
+the valid commands and arguments for dp_atclose.
+<TABLE>
+
+<TR><TD WIDTH=121><FONT SIZE=2>Command</FONT></TD><TD WIDTH=96><FONT SIZE=2>Arguments</FONT>
+</TD><TD WIDTH=408><FONT SIZE=2>Description </FONT></TD></TR>
+
+<TR><TD WIDTH=121><CODE>append</CODE></TD><TD WIDTH=96><CODE>callback</CODE>
+</TD><TD WIDTH=408><TT>Invoke callback when file closes </TT>
+</TD></TR>
+
+<TR><TD WIDTH=121><CODE>appendUnique</CODE></TD><TD WIDTH=96><CODE>callback</CODE>
+</TD><TD WIDTH=408><TT>Invoke callback precisely once when file closes </TT>
+</TD></TR>
+
+<TR><TD WIDTH=121><CODE>list</CODE></TD><TD WIDTH=96><CODE>-</CODE>
+</TD><TD WIDTH=408><TT>Return file closing callback list </TT>
+</TD></TR>
+
+<TR><TD WIDTH=121><CODE>remove</CODE></TD><TD WIDTH=96><CODE>callback</CODE>
+</TD><TD WIDTH=408><TT>Remove callback from file closing callback list </TT>
+</TD></TR>
+
+<TR><TD WIDTH=121><CODE>insert</CODE></TD><TD WIDTH=96><CODE>callback</CODE>
+</TD><TD WIDTH=408><TT>Insert callback at beginning of callback list</TT>
+</TD></TR>
+
+</TABLE>
+
+<P>
+We can use dp_atclose in the whiteboard program to remove a client
+that has crashed from the clients variable by making the following
+change to the Subscribe command. The modified code is shown in
+boldface:
+<PRE>
+<FONT SIZE=2>A% proc Subscribe {} {
+    global dp_rpcFile clients log
+    lappend clients $dp_rpcFile
+    dp_atclose $dp_rpcFile append \
+        &quot;set clients [ldelete $dp_rpcFile $clients]&quot;
+    foreach cmd $log {
+        eval dp_RDO $dp_rpcFile $cmd
+    }
+}</FONT>
+</PRE>
+
+<H3>The Name Server </H3>
+
+<P>
+As distributed applications get more complex, starting and stopping
+servers, locating a server and the port on which it is listening,
+and keeping track of the server state becomes more of a problem.
+For example, in our whiteboard program, we want to start the client
+application and have it connect to a running server if one is
+available or start one if it is not running. The problem is how
+do we locate a running server or start one if it is not running?
+The Tcl-DP <I>name server</I> solves this problem.
+<P>
+The name server associates a name with each process which are
+patterned after Unix file names. For example, the name of the
+whiteboard server might be /demo/whiteboard.
+<P>
+When the server starts up, it uses the procedure NS_SrvcInit to
+contact the name server and declare its name. For example, the
+following commands tells the name server that the whiteboard server
+is running on mayo.sandwich.com, port 4500:
+<PRE>
+<FONT SIZE=2>A% NS_SrvcInit /demo/whiteboard mayo.sandwich.com 4500</FONT>
+</PRE>
+
+<P>
+Registering a name with the name server adds it to the list of
+server that the name server knows about. We call a registered
+name a <I>service</I>. When a whiteboard client wants to locate
+the whiteboard server, it issues an NS_GetServiceConn call to
+find the service. NS_GetServiceConn takes the name of a service
+as an argument, contacts the name server, and returns a host and
+port number where the server can be contacted. For example, the
+code
+<PRE>
+<FONT SIZE=2>B% set whiteboardServer [NS_GetServiceConn /demo/whiteboard]</FONT>
+</PRE>
+
+<P>
+queries the name server to get the host and port number of the
+whiteboard server which can be passed to dp_MakeRPCClient.
+<P>
+If the server is not running when NS_GetServiceConn is called,
+the name server can start the process for you if the service is
+registered as an <I>autostart</I> service. Only processes marked
+as autostart in the file $dp_library/ns/nsconfig can be started
+automatically. For example, adding the following line to this
+file makes the whiteboard an autostart service:
+<PRE>
+<FONT SIZE=2>ns_Register addService /demo/whiteboard mayo.sandwich.com \
+	dptcl -f /home/tcldp/ns/wbServer.tcl&quot;
+ns_Register aliasService /demo/whiteboard /wbServer</FONT>
+</PRE>
+
+<P>
+The name server can associate several names, called aliases, with
+a single process. A call to NS_GetServiceConn will search through
+service names and their aliases for a match. The name server supports
+pattern matching on service names similar to Unix file name matching
+to locate servers. The interface to this pattern matching function
+is NS_FindService. NS_FindService returns a list of all the matching
+names, similar to the way the Tcl glob command returns a list
+of file names that match a pattern. For example, the following
+call locates all servers in the demo tree:
+<PRE>
+<FONT SIZE=2>B% set demoServers [NS_FindService /demo/*]</FONT>
+</PRE>
+
+<P>
+The use of the slash (&quot;/&quot;) character to give a hierarchical
+structure to the process names is only a convention. NS_FindService
+uses the Tcl string match command to search for matches. Consequently,
+you can establish any naming scheme you like, but we encourage
+you to use the naming convention presented above (i.e., use slash
+characters) to ensure uniformity.
+<P>
+The name server is a network wide service built using Tcl-DP.
+It runs on a well known host and port number in your network.
+The exact host and port are specified in the file $dp_library/ns/nsconfig.tcl.
+This immediately bring to mind the following questions: who starts
+the name server and what happens if the machine that runs the
+name server crashes? The answer to the first question is that
+the name server is typically started by an entry in /etc/rc.local
+when a designated machine boots. The answer to the second question
+is that backup copies of the name server can be run at the same
+time as the primary server. The machines on which the backup server
+are run are specified in the file $dp_library/ns/nsconfig.tcl.
+All name server functions accessible from the client, such as
+NS_GetServiceConn and NS_FindService, will locate the primary
+server and connect to it. If the primary name server crashes,
+the backups elect a new primary name server. More details on the
+design and implementation of the name server are available elsewhere
+[tcl-95 ref].
+<H2>Tcl-DP Communication Services </H2>
+
+<P>
+This section shows you how to use Tcl-DP's interfaces to TCP,
+UDP, and IP-multicast. It also shows you how to query and set
+various properties of sockets, such as buffer sizes and blocking
+properties, to gain more control over the properties of the communication
+channel. Finally, this section will show you how to access the
+Internet Domain Name Service (DNS) using Tcl-DP. The DNS maps
+internet addresses (e.g., 128.32.149.117) to host names (e.g.,
+toe.cs.berkeley.edu).
+<H3>Review of Berkeley Sockets </H3>
+
+<P>
+Before discussing Tcl-DP's mechanisms for connecting two processes,
+we will briefly review Berkeley sockets. Sockets come in several
+varieties, distinguished by the communication protocol (e.g.,
+TCP or UDP), how the socket is identified, and whether or not
+the socket is the connection initiator. In this section, we will
+discuss the primitives used for <I>connected</I> (i.e., TCP) sockets.
+We will discuss the primitives associated with unconnected (UDP
+and IP-multicast) sockets later.
+<H3>TCP sockets </H3>
+
+<P>
+Connecting two processes using TCP is a three step process, illustrated
+in figure 9. First, one process, say A, creates a <I>listening</I>
+socket with an associated <I>name</I> so that other processes
+can contact it. The name can be either a Unix filename or an Internet
+address and port number. Second, another process (B) creates another
+socket and <I>connects</I> to A's listening socket. Third, A <I>accepts</I>
+the connection, which creates a new socket so that other processes
+can contact A using the A's listening socket.
+<HR>
+
+<P>
+<CENTER><IMG SRC="tcl_book.fig_21.gif" width="610" height="352"></CENTER>
+<P>
+<CENTER>Figure 9: Connecting processes using TCP </CENTER>
+<HR>
+
+<P>
+In Tcl-DP, dp_connect is used for steps one and two, and dp_accept
+is used for step three. Dp_connect will create a listening sockets
+if the -server flag is provided. For example, the following command
+creates a listening socket on port 1905 and assigns the socket
+identifier (file4) to the variable listeningSocket.
+<PRE>
+<FONT SIZE=2>A% set info [dp_connect -server 1905]
+file4 1905
+A% set listeningSocket [lindex $info 0]
+file4</FONT>
+</PRE>
+
+<P>
+The third parameter to dp_connect is the port number. Only one
+socket can be associated with a given port at any time. If another
+socket is already open on that port, dp_connect will return an
+error. You can have the operating system select an unused port
+by specifying a port number of 0 to dp_connect. No matter who
+selects the port number, dp_connect will return a list of two
+values: the identifier for the socket and its port number.
+<P>
+After creating the listening socket, the server typically waits
+for a connection to arrive by calling dp_accept, which will return
+when another process attempts to connect to the socket. For example,
+the following code causes A to block while waiting for a client:
+<PRE>
+<FONT SIZE=2>A% set newClient [dp_accept $listeningSocket]</FONT>
+</PRE>
+
+<P>
+Another process connects to A using another form of dp_connect.
+In this form, the hostname of the machine on which the server
+is running, and the port number of the server socket, are passed
+as parameters to dp_connect. If the hostname of A is mayo.sandwich.com,
+the following code will connect machine B to A:
+<PRE>
+<FONT SIZE=2>B% set info [dp_connect mayo.sandwich.com 1905]
+file4 3833
+B% set s2 [lindex $info 0]</FONT>
+</PRE>
+
+<P>
+As with the previous call to dp_connect, a handle to the socket
+(e.g., file4) and the operating system selected port number of
+the socket (3833) are returned.
+<P>
+B's attempt to connect to A will cause A's call to dp_accept to
+return, setting the newClient variable to the handle of the new
+socket (e.g., file5) and the Internet address of the connecting
+process (e.g. 128.83.218.21)
+<PRE>
+<FONT SIZE=2>A% set newClient [dp_accept $listeningSocket]
+file5 128.83.218.21
+A% set s1 [lindex $newClient 0]
+file5</FONT>
+</PRE>
+
+<H3>Unix Domain Sockets </H3>
+
+<P>
+The example above created <I>Internet domain</I> sockets. That
+is, B uses an Internet address and port number to rendezvous with
+A's socket. On Unix systems, another naming scheme, called <I>Unix
+domain</I> sockets, can be used to available for connecting processes
+if they reside on the same machine. In this case, a file name
+(e.g., /tmp/mysocket) is used to name the socket. The following
+example shows a connection using Unix domain sockets.
+<P>
+Server code:
+<PRE>
+<FONT SIZE=2>    % set f [dp_connect -server /tmp/mysocket]
+    file4
+    % set s1 [dp_accept $f]
+</FONT>
+</PRE>
+
+<P>
+Client Code:
+<PRE>
+<FONT SIZE=2>    % set s2 [dp_connect /tmp/mysocket]
+    file4</FONT>
+</PRE>
+
+<P>
+Regardless of whether Unix or Internet domain sockets are used,
+processes communicate using the handles of the sockets as arguments
+to Tcl-DP function. In the examples, these handles are stored
+in the variables s1 and s2.
+<H3>Sending and receiving data </H3>
+
+<P>
+The simplest way to send data from one application to another
+is to use the Tcl functions gets, read, and puts. For example,
+in the following fragment B sends the string &quot;Hello world&quot;
+to A:
+<PRE>
+<FONT SIZE=2>B% puts $s2 &quot;hello world&quot;</FONT>
+</PRE>
+
+<P>
+To receive the string, A calls gets:
+<PRE>
+<FONT SIZE=2>A% gets $s1
+hello</FONT>
+</PRE>
+
+<P>
+Another interface for sending and receiving data is dp_send and
+dp_receive. Dp_send takes the same arguments as puts and serves
+the same function. Dp_receive is similar to the Tcl read command,
+except it takes an optional -peek flag indicating that the data
+should be read from the socket, but not consumed, so that a subsequent
+call to dp_receive will see the same data. In addition, if the
+connection is ever broken, dp_send and dp_receive automatically
+close the socket.
+<P>
+TCP sockets provide a stream interface, which can cause unexpected
+results if you want to use them to send messages between processes.
+For example, suppose B sends several messages to A. When A reads
+its socket, the messages might be concatenated or only part of
+a message may be present. The following code fragment shows this
+effect in action. If B executes the following commands 
+<PRE>
+<FONT SIZE=2>B% dp_send $s2 &quot;message 1&quot;
+B% dp_send $s2 &quot;message 2&quot;</FONT>
+</PRE>
+
+<P>
+When A calls dp_receive, it gets both messages at once:
+<PRE>
+<FONT SIZE=2>A% dp_receive $s1
+message 1
+message 2</FONT>
+</PRE>
+
+<P>
+Since some applications want to preserve message boundaries and
+want the reliability of TCP, Tcl-DP provides two functions, dp_packetSend
+and dp_packetReceive, that provide message-oriented delivery.
+For example, suppose B uses dp_packetSend instead of dp_send in
+the example above:
+<PRE>
+<FONT SIZE=2>B% dp_packetSend $s2 &quot;message 1&quot;
+B% dp_packetSend $s2 &quot;message 2&quot;</FONT>
+</PRE>
+
+<P>
+When A calls dp_packetReceive, it gets one message per function
+call.
+<PRE>
+<FONT SIZE=2>A% dp_packetReceive $s1
+message 1
+A% dp_packetReceive $s1
+message 2</FONT>
+</PRE>
+
+<P>
+It is possible that only part of the message is available at the
+time dp_packetReceive is called. In this case, dp_packetReceive
+will buffer the partial result internally and return an empty
+string. A subsequent call to dp_packetReceive will return the
+entire packet.
+<P>
+To preserve message boundaries, dp_packetSend attaches a binary
+header onto the message, which dp_packetReceive strips. The presence
+of this header means that applications must be careful about intermixing
+calls to dp_packetSend and dp_packetReceive with dp_send and dp_receive,
+and other data transmission functions.
+<H3>File handlers </H3>
+
+<P>
+So far, the socket functions we have seen block if no data is
+present on the socket. That is, the function call will not return
+until some data arrives. Blocking can cause problems, for example,
+if a program needs to read data from several connections at once.
+To address this problem, Tcl-DP provides a mechanism called <I>file
+handlers</I> that arranges for a Tcl function to be called whenever
+the file becomes <I>readable</I> or <I>writable</I>. A socket
+becomes readable when another process attempts to connect to it,
+in the case of a listening socket, or when it has data waiting
+at its input, in the case of a data socket. A data socket become
+writable whenever a call to dp_send, puts, or dp_packetSend will
+not block.
+<P>
+File handler callback procedures take two parameters. The first
+parameter, called the <I>mode</I>, indicates whether the socket
+has become readable or writable. It will be `r' if the socket
+is readable, or `w' if the socket is writable. The second parameter
+is the handle of the socket. For example, the following fragment
+arranges for A to accept a new connection whenever one is requested
+on its listening socket. The procedure MyAccept calls dp_accept
+to accept the connection, prints a message on the screen, and
+adds the new socket to the socketList variable.
+<PRE>
+<FONT SIZE=2>A% proc MyAccept {mode file} {
+
+global socketList
+set info [dp_accept $file]
+set newSocket [lindex $info 0]
+puts &quot;Accepted connection from [lindex $info 1]&quot;
+lappend socketList $newSocket
+}
+A% dp_filehandler $listeningSocket r MyAccept</FONT>
+</PRE>
+
+<P>
+The call to dp_filehandler arranges for MyAccept to be called
+whenever listeningSocket becomes readable. The second parameter
+to dp_filehandler (`r' in the example above) indicates that the
+file handler should only be called when the socket is readable.
+If `w' is used for this parameter, the function will be called
+when the socket becomes writable.
+<P>
+If an error occurs when a file handler callback executes, the
+file handler is automatically removed to prevent the program from
+going into an infinite loop if the file handler does not consume
+the data at the socket. You can manually remove a file handler
+by calling dp_filehandler without the mode or callback parameters.
+<P>
+Another way of detecting if a file is readable or writable is
+to use the dp_isready command. Dp_isready takes a file handle
+as a parameter and returns a list of two boolean values (0 or
+1). The first element of the return value indicates whether the
+file is readable. If it is 0, then any call that attempts to read
+data from the file (e.g., gets or dp_receive) will block. The
+second element of the return value indicates whether the file
+is writable. If it is 0, then any call that attempts to write
+data to the file (e.g., puts or dp_send) will block.
+<P>
+For example, if a call to read data on s1 would block, dp_isready
+returns 0 1:
+<PRE>
+<FONT SIZE=2>A% dp_isready $s1
+0 1</FONT>
+</PRE>
+
+<P>
+If B sends some data to A:
+<PRE>
+<FONT SIZE=2>B% dp_send $s2 &quot;hi there&quot;</FONT>
+</PRE>
+
+<P>
+a call to read data on s1 would not block, so dp_isready returns
+1 1:
+<PRE>
+<FONT SIZE=2>A% dp_isready $s1
+1 1
+A% dp_receive $s1
+hi there</FONT>
+</PRE>
+
+<H3>Example: A Simple FTP Server </H3>
+
+<P>
+Suppose you wanted to implement a simple FTP style server using
+Tcl-DP. One way to implement it is to create a new TCP connection
+for each file transfer, which would be a four step process, as
+illustrated in figure 10.
+<HR>
+
+<P>
+<CENTER><IMG SRC="tcl_book.fig_48.gif" width="615" height="458"></CENTER>
+<P>
+<CENTER>Figure 10: Mechanics of an FTP-style file transfer using
+Tcl-DP </CENTER>
+<HR>
+
+<OL>
+<LI>The client opens the output file and creates a listening socket
+(the <I>connect socket</I>)
+<LI>The client sends the following information to the server:
+the client's hostname, the port number of the connect socket,
+and the filename to transfer.
+<LI>The server opens the input file and a TCP connection to the
+client's connect socket, which gives the server a <I>data socket</I>.
+It then enters a loop where it repeatedly reads the input file
+and sends the data over to the client. It then closes the data
+socket and input file.
+<LI>Meanwhile, the client accepts the connection on the connect
+socket, closes it, and enters a loop where it receives data from
+the server and write it to the output file. If dp_receive ever
+returns an error, it means the connection was broken, presumably
+because the transfer is complete. Since dp_receive automatically
+closes the file when the connection is broken, the client only
+has to close the output file before returning.
+</OL>
+
+<P>
+The Tcl-DP code in figures 11 and 12 implement this protocol.
+The client uses dp_RPC to implement step 2 by calling the SendFile
+function in the server.
+<H3>TCP Socket options </H3>
+
+<P>
+A socket has many parameters that affect its behavior. Tcl-DP
+sets these parameters to reasonable default values when the societe
+is created. <I>Socket options</I> give you control over these
+options. They can be used to specify whether function calls block,
+how data is buffered, and the reliability of the connection. They
+are accessed using dp_socketOption, which takes two or three parameters,
+similar to configure requests on Tk widgets. The first parameter
+is the socket identifier (e.g., file4), the second is a <I>property</I>
+of the socket you want to examine or modify, and the third parameter,
+if present, is the new value for the property. If the third parameter
+is not supplied, the current value of the property is returned.
+The paragraphs below discuss the properties relevant to TCP sockets,
+which are summarized in the following table.
+<TABLE>
+
+<TR><TD WIDTH=97><TT>Property</TT></TD><TD WIDTH=72><TT>legal values</TT>
+</TD><TD WIDTH=84><TT>default</TT></TD><TD WIDTH=426><TT>Description </TT>
+</TD></TR>
+
+<TR><TD WIDTH=97><CODE>sendBuffer</CODE></TD><TD WIDTH=72><TT>1-64K</TT>
+</TD><TD WIDTH=84><TT>&gt; 8192</TT></TD><TD WIDTH=426><TT>Size of TCP send buffer </TT>
+</TD></TR>
+
+<TR><TD WIDTH=97><CODE>recvBuffer</CODE></TD><TD WIDTH=72><TT>1-64K</TT>
+</TD><TD WIDTH=84><TT>&gt; 8192</TT></TD><TD WIDTH=426><TT>Size of TCP receive buffer </TT>
+</TD></TR>
+
+<TR><TD WIDTH=97><CODE>noblock</CODE></TD><TD WIDTH=72><TT>yes,no</TT>
+</TD><TD WIDTH=84><TT>no</TT></TD><TD WIDTH=426><TT>Will calls on the socket will block? </TT>
+</TD></TR>
+
+<TR><TD WIDTH=97><CODE>AutoClose</CODE></TD><TD WIDTH=72><TT>yes,no</TT>
+</TD><TD WIDTH=84><TT>yes</TT></TD><TD WIDTH=426><TT>Will the socket will automatically close and remove file handlers if the connection is broken? </TT>
+</TD></TR>
+
+<TR><TD WIDTH=97><CODE>Linger</CODE></TD><TD WIDTH=72><TT>&gt;=0</TT>
+</TD><TD WIDTH=84><TT>0</TT></TD><TD WIDTH=426><TT>Blocking time on close to ensure data delivery. </TT>
+</TD></TR>
+
+<TR><TD WIDTH=97><CODE>ReuseAddr</CODE></TD><TD WIDTH=72><TT>yes,no</TT>
+</TD><TD WIDTH=84><TT>yes</TT></TD><TD WIDTH=426><TT>Allow local address reuse</TT>
+</TD></TR>
+
+</TABLE>
+
+<P>
+
+<UL>
+<LI><B>Buffer Sizes</B>: When a process writes data to a socket,
+the operating system copies that data into an internal buffer,
+called the <I>send buffer</I>, where it remains until its transfer
+is acknowledged by the receiver. As long as there is sufficient
+free space in the send buffer, calls like dp_send that write data
+to the socket will not block. Similarly, the receiver's operating
+systems has an internal buffer (the <I>receive buffer</I>) where
+it stores incoming data until the client executes a call such
+as dp_receive to read it. <BR>
+<BR>
+You can set or query the size of the send and receive buffers
+for each socket using the sendBuffer and recvBuffer properties.
+For example, the following code prints out the current size of
+the send and receive buffers and then sets them both to 32 Kbytes.
+<BR>
+<BR>
+Each operating system imposes certain restrictions on the maximum
+size of the buffers (it's rarely greater than 64 Kbytes). In <DFN>some</DFN>
+cases, when and how you can resize them is also restricted. The
+best way to figure it out for your personal configuration is by
+experimentation.
+</UL>
+
+<PRE>
+<FONT SIZE=2>A% puts &quot;Send buffer size: [dp_socketOption $s1 sendBuffer]&quot;
+Send buffer size: 8192
+
+A% puts &quot;Receive buffer size: [dp_socketOption $s1 recvBuffer]&quot;
+Receive buffer size: 8192
+A% dp_socketOption $s1 sendBuffer 32768
+32768
+A% dp_socketOption $s1 recvBuffer 32768
+32768</FONT>
+</PRE>
+
+<UL>
+<LI><B>Blocking Behavior</B>: By default, calls that write data
+to a socket will block if there is not enough room left in the
+send buffers, and calls that read data from a socket will block
+if there is no data waiting to be read. These behaviors can be
+changed by using the noblock property. Noblock is a boolean valued
+property (yes or no).<BR>
+<BR>
+The first line below queries the current value of the noblock
+property. The second line makes the socket non-blocking, so that
+subsequent calls to dp_receive do not block. <BR>
+
+</UL>
+
+<PRE>
+<FONT SIZE=2>A% dp_socketOption $s1 noblock no A% dp_socketOption $s1 noblock yes A% dp_receive $s1 
+</FONT>
+</PRE>
+
+<UL>
+<LI><B>Automatic socket cleanup</B>: By default, dp_send and dp_receive
+automatically close a socket and removes its file handlers when
+the connection is broken. If an application programmer wants to
+close the file manually, this behavior can be suppressed by setting
+the autoClose property of the socket. AutoClose is a boolean valued
+property (yes or no). 
+<LI><B>Reusing Port Numbers</B>: When a process with an open socket
+crashes, the operating system prevents other processes from opening
+a socket with the same port number until enough time has passed
+that any old packets floating around in the network that are destined
+for the dead process have expired. If the boolean property reuseAddr
+is set to yes, processes can reuse the port number in question
+immediately. 
+</UL>
+
+<H3>UDP </H3>
+
+<P>
+TCP sockets provide reliable, in-order data delivery with a stream
+interface. In contrast, UDP sockets provide no guarantees on whether
+data will get through but preserves message boundaries. That is,
+when a message is sent by one application to another using UDP,
+either the entire message will get through and the receiver will
+receive it in as a single unit, or the message will not get through
+at all. There is a chance that a message may be duplicated using
+UDP, but such duplication is rare.
+<P>
+To create a UDP socket using Tcl-DP, you call dp_connect with
+the -udp flag and port number of the socket. For example, the
+following command creates a UDP socket with port number 2020 in
+process A:
+<PRE>
+<FONT SIZE=2>A% set info [dp_connect -udp 2020]
+file3 2020
+A% set udpA [lindex $info 0]
+file3</FONT>
+</PRE>
+
+<P>
+As with TCP sockets, an identifier for the socket (file3) and
+the port number of the socket (2020) are returned. If you can
+pass in a port number of 0, the system will chose (and return)
+an unused port number.
+<P>
+For the examples that follow, we will need another UDP socket
+in process B:
+<PRE>
+<FONT SIZE=2>B% set info [dp_connect -udp 4100]
+file3 4100
+B% set udpB [lindex $info 0]
+file3</FONT>
+</PRE>
+
+<P>
+You can use the dp_sendTo command to send a message using UDP.
+Dp_sendTo takes three parameters: the socket identifier (file3),
+the message (&quot;hello&quot;), and the destination address.
+The last parameter is created using the dp_address command.
+<P>
+Dp_address creates, deletes, and queries <I>addresses</I>. To
+create an address, you must specify the host address and a port
+number. For example, assuming process A is running on mayo.sandwich.com,
+the following command creates an address for the socket on port
+2020:
+<PRE>
+<FONT SIZE=2>B% set dest [dp_address create mayo.sandwich.com 2020]
+addr0</FONT>
+</PRE>
+
+<P>
+The return value of dp_address create can then be used as a parameter
+to dp_sendTo, as shown below:
+<PRE>
+<FONT SIZE=2>B% dp_sendTo $udpB &quot;Hello there&quot; $dest</FONT>
+</PRE>
+
+<P>
+Process A can read the message using dp_receiveFrom:
+<PRE>
+<FONT SIZE=2>A% set x [dp_receiveFrom $udpA]
+addr0 {Hello there}</FONT>
+</PRE>
+
+<P>
+Dp_receiveFrom returns a list of two values. The first is the
+address of the sender and the second is the message. The address
+can be used for replies:
+<PRE>
+<FONT SIZE=2>A% dp_sendTo $udpA &quot;Pleased to meet you&quot; [lindex $x 0]</FONT>
+</PRE>
+
+<P>
+An important feature of UDP sockets is that they are <I>connectionless</I>.
+That is, a pair of TCP sockets is needed for each pair of processes
+that communicate. The two sockets are <I>connected</I>. In contrast,
+a single UDP socket can be used to communicate with an unlimited
+number of other processes, since the destination address is specified
+in the message. Since many operating systems place rather stringent
+limits on the number of open sockets in a process, but almost
+no limit on the number of addresses that can be created, UDP sockets
+are useful in applications that communicate with many other processes.
+<P>
+The standard functions close, dp_atclose, dp_isready, dp_filehandler,
+and dp_socketOption can be used with UDP sockets. The following
+properties can be set on UDP sockets using dp_socketOption: 
+<UL>
+<LI><B>Buffer Sizes</B>: Setting the buffer size of a UDP sockets
+determines the maximum message size. For example, if the send
+or receive buffer is 8 KBytes and you try to send a 12 KByte message,
+the message will not get through and you will get an error message,
+as shown in the code below.<BR>
+<BR>
+If the receive buffer is too small, the message will be dropped
+silently.<BR>
+<BR>
+As with TCP sockets, each system imposes certain restrictions
+on the maximum size of the buffers. <BR>
+
+</UL>
+
+<PRE>
+<FONT SIZE=2>B% dp_socketOption $udpB sendBuffer
+</FONT>9000
+B% dp_sendTo $udpB [format %12000d 10] $dest
+error writing file3: Message too long
+B% dp_socketOption $udpB sendBuffer 15000
+15000
+B% dp_sendTo $udpB [format %12000d 10] $dest
+B% <BR>
+
+</PRE>
+
+<UL>
+<LI><B>Blocking Behavior</B>: Dp_receiveFrom normally blocks if
+there is no data waiting to be read. This behavior can be changed
+by using the noblock property. Noblock is a boolean valued property
+(yes or no). Dp_sendto never blocks. <BR>
+
+</UL>
+
+<H3>IP-multicast </H3>
+
+<P>
+IP-multicast sockets are similar to UDP sockets, in that they
+transmit whole messages unreliably using dp_sendTo, dp_receiveFrom,
+and dp_address, but they have the advantage that they can efficiently
+send data to several clients with one function call and a single
+address. 
+<P>
+To use IP-multicast, you must first understand the concept of
+a <I>group address</I>. A group address looks like an ordinary
+IP address, except the range is 224.0.0.1 to 239.255.255.255 and
+it is not associated with a single machine, but with a group of
+machines. When a process sends a message to a group address, all
+machines that have created a multicast socket with that group
+address will receive it. A machine becomes part of a group by
+creating a socket by calling dp_connect with the -mudp flag, passing
+in three additional parameters: the group address, the port number,
+and the <I>time-to-live</I> (ttl). We will explain the meaning
+of the ttl parameter shortly.
+<P>
+For example, suppose you have a pool of Unix machines on your
+network that can be used for general purpose computing. You decide
+to use Tcl-DP to build a load monitor that reports the load on
+each machine in the pool to every other machine in the pool once
+a second so that you can find an unloaded machine. The code in
+figure 13 shows an implementation of this service that uses IP-multicast
+to send the load average of each machine to every other machine.
+The procedure GetLoad returns the load average on each machine,
+obtained from parsing the results of the Unix uptime command.
+The procedure SendReport sends a message containing the hostname
+and load average on the local machine to every machine in the
+group, and then schedules another call to SendReport using the
+dp_after command, which is equivalent to Tk's after command. SendReport
+takes two parameters, an IP-multicast socket and a group address.
+The ReceiveReport procedure is called by a file handler whenever
+the IP-multicast socket becomes readable (i.e., when a report
+has been received). ReceiveReport updates the global array load,
+which contains the load average of each machine in the pool. The
+multicast group address and port number, 225.28.199.17 and 2120,
+respectively, were chosen arbitrarily.
+<HR>
+
+<PRE>
+<FONT SIZE=2>proc GetLoad {} {
+</FONT>	set info [split [exec uptime] ,]
+	lindex [lindex $info 3] 2
+}
+
+proc SendReport {socket address} {
+	set msg &igrave;[dp_hostname] [GetLoad]&icirc;
+	dp_sendTo $socket $msg $address
+	dp_after 1000 SendReport $socket $address
+}
+
+proc RecvReport {mode socket} {
+	global load
+	set info [dp_receiveFrom $socket]
+	set x [lindex $info 1]
+	set hostName [lindex $x 0]
+	set hostLoad [lindex $x 1]
+	set load($hostName) $hostLoad
+}
+
+set socket [lindex [dp_connect -mudp 225.28.199.17 2120 16] 0]
+set address [dp_address create 225.28.199.17 2120]
+dp_filehandler $socket r RecvReport
+SendReport $socket $address
+</PRE>
+
+<P>
+<CENTER><FONT COLOR=#000000 FACE="Times">Figure 13: A load monitor
+using IP-multicast</FONT></CENTER>
+<HR>
+ 
+<P>
+Given this structure, you can find the most lightly loaded machine
+by searching through the load array. Alternatively, you could
+use Tk to build an interface that graphically displayed the contents
+of this array.
+<P>
+Note that, in the example above, each machine also receives load
+average reports from itself. For some applications this behavior,
+which is called <I>loopback</I>, may be undesirable. Loopback
+can be turned off using the loopBack socket option. 
+<P>
+IP-multicast sockets and UDP sockets can be used to send data
+to each other. That is, you can use a UDP socket to send to a
+multicast address, and a multicast socket to send to a UDP socket.
+For example, the following code uses a UDP socket to report the
+load average to the multicast group (assuming the procedure SendReport
+is defined as above).
+<PRE>
+<FONT SIZE=2>set udp [lindex [dp_connect -udp 0] 0]
+set address [dp_address create 225.28.199.17 2120]
+SendReport $udp $address</FONT>
+</PRE>
+
+<H3>IP-multicast Socket options </H3>
+
+<P>
+IP-multicast sockets have the same socket options as UDP socket,
+and four other properties that can be set using dp_socketOption:
+
+<UL>
+<LI><B>Loop Back</B>: When a message is sent to a group address,
+the sender also receives a copy of the message. This property,
+called <I>loopback</I>, can be toggled by setting the loopBack
+property of the socket using dp_socketOption. LoopBack is a boolean
+valued property (yes or no). 
+<LI><B>Time to Live (TTL)</B>: When an IP-multicast message is
+sent, one of the fields in the packet is called the time-to-live,
+or ttl, field. When the packet is routed through a gateway, the
+ttl field is decremented. If the ttl field is ever zero, the gateway
+drops the packet. The ttl field thus limits the lifetime of a
+packet, preventing packets from forever wandering through the
+network.<BR>
+<BR>
+The default value for ttl is specified when the socket is created
+and can be changed later by setting the ttl property on the socket.
+For example, the following fragment sets the ttl of socket to
+128:
+</UL>
+
+<PRE>
+<FONT SIZE=2>dp_socketOption $socket ttl 128</FONT>
+</PRE>
+
+<UL>
+<LI>The ttl property can be used to limit the range of a multicast.
+For example, to send to only hosts on you local area network,
+use a ttl value of 0. To reach all hosts within 2 network hops,
+set ttl to 2.
+<LI><B>Adding and Dropping Membership</B>: A single IP-multicast
+socket can belong to several groups at once. When an IP-multicast
+socket is created, an initial group and port number are specified.
+You can join other groups by calling dp_socketOption with the
+addMbr command. For example, the following three lines of code
+create a socket that belongs to three groups <BR>
+
+</UL>
+
+<PRE>
+<FONT SIZE=2>set socket [lindex [dp_connect -mudp 225.28.199.17 2120 16] 0]
+</FONT>dp_socketOption $socket addMbr 224.2.12.187
+dp_socketOption $socket addMbr 235.102.89.5 
+</PRE>
+
+<P>
+The same port number is used for all three addresses. You can
+use dropMbr to remove yourself from a group
+<PRE>
+<FONT SIZE=2>dp_socketOption $socket dropMbr 235.102.89.5</FONT>
+</PRE>
+
+<H3>The Domain Name Service </H3>
+
+<P>
+One use of the dp_address command is to specify the source or
+destination of addresses for UDP and IP-multicast sockets. Another
+use is to find out information about hosts and services using
+the dp_address info command. For example, suppose you create the
+following address:
+<PRE>
+<FONT SIZE=2>A% set a [dp_address create fw.cs.cornell.edu 0]
+addr1</FONT>
+</PRE>
+
+<P>
+You can find information about that address using the dp_address
+info command:
+<PRE>
+<FONT SIZE=2>A% dp_address info $a
+128.84.154.8 0 {alvin.cs.cornell.edu fw.cs.cornell.edu alvin.cs alvin 
+fw.cs fw}</FONT>
+</PRE>
+
+<P>
+The return value shows that the IP address of fw.cs.cornell.edu
+is 128.84.154.8, and that it is known by a variety of names, including
+alvin, alvin.cs, and fw.cs.cornell.edu. The dp_address command
+can be used to create a function that returns the IP address given
+a host's name, or vice versa, as shown in the two functions below.
+<PRE>
+<FONT SIZE=2>A% proc InetAddress {hostname} {
+    set addr [dp_address create $hostname 0]
+    set x [dp_address info $addr]
+    dp_address delete $addr
+    lindex $x 0
+}
+A% proc Hostname {inetAddr} {
+    set addr [dp_address create $inetAddr 0]
+    set x [dp_address info $addr]
+    dp_address delete $addr
+    lindex [lindex $x 2] 0
+}
+A% InetAddress alvin.cs.cornell.edu
+128.84.154.8
+A% Hostname 128.84.154.8
+alvin.cs.cornell.edu</FONT>
+</PRE>
+
+<P>
+By the way, as shown in the next to last line of each of the procedures
+above, you should execute the dp_address delete command to free
+up the memory associated with an address when you are finished
+with it.
+<H2>Learning More </H2>
+
+<P>
+That concludes our tour of the Tcl-DP extension to Tcl/Tk. There
+are a few other features in Tcl-DP that we haven't discussed,
+but we have covered the main ones here. We hope you have gained
+an appreciation for how simple it is to build distributed programs
+using Tcl-DP and that you have enough background now to explore
+on your own. To learn more, study the examples in the examples
+subdirectory, post articles to the comp.lang.tcl newsgroup, and
+read the manual pages in the doc subdirectory. 
+<P>
+Tcl-DP is the result of the efforts of many, many people. Some
+of the major contributors are Steve Yen, Pekka Nikander, Tim MacKenzie,
+Lou Salkind, R. Lindsay Todd, Peter Liu, Ulla Bartsich, Mike Grafton,
+Jon Knight, Gordon Chaffee, and Mike Perham. You can help, too.
+If you add a new feature to Tcl-DP or port it to a new platform,
+please send mail to tcl-dp@cs.cornell.edu so that we can incorporate
+the changes into the source.  
+</BODY>
+
+</HTML>

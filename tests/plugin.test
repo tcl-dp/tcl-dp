@@ -1,0 +1,240 @@
+# plugin.test
+#
+#	This file tests the correct functioning of the plug-in filters.
+#
+
+# CMake creates testconfig.tcl from testconfig.tcl.in, substituting CMake variables.
+source [file join tests testconfig.tcl]
+
+
+test plugInFilter-1.1.1 {dp_connect command} -body {
+    list [catch {
+        dp_connect plugfilter -bar
+    } msg] $msg 
+} -result {1 {unknown option "-bar", must be -channel}}
+
+test plugInFilter-1.1.2 {dp_connect command} -body {
+    list [catch {
+        dp_connect plugfilter -bar foo
+    } msg] $msg 
+} -result {1 {unknown option "-bar", must be -channel}}    
+
+
+#
+# Test argument missing checks.
+#
+
+test plugInFilter-1.2.1 {dp_connect command} -body {
+    list [catch {
+        dp_connect plugfilter -channel
+    } msg] $msg 
+} -result {1 {option value missing for -channel}}    
+
+test plugInFilter-1.2.2 {dp_connect command} -body {
+    list [catch {
+        dp_connect plugfilter 
+    } msg] $msg 
+} -result {1 {-channel must be defined for a plug-in channel}}
+
+test plugInFilter-1.2.3 {dp_connect command} -body {
+    list [catch {
+        dp_connect plugfilter -channel wrong_channel
+    } msg] $msg 
+} -result {1 {can not find channel named "wrong_channel"}}
+
+#
+# Test functioning by copying data from a file.
+#
+
+test plugInFilter-1.2.4 {dp_connect command} -body {
+    list [catch {
+	set x "01234567890123456789012345678901"
+	for {set i 0} {[expr $i < 10]} {incr i} {
+	    set x $x$x
+	}
+	set f [open ___tmp {WRONLY CREAT}]
+	puts -nonewline $f $x
+	close $f
+	set f [open ___tmp {RDONLY}]
+	set plugChan [dp_connect plugfilter -channel $f]
+	string range $plugChan 0 9
+    } msg] $msg 
+} -result {0 plugfilter}
+
+# Need to use dummy because I can not test the value of plugChan in
+# line above.
+
+if {$plugChan != ""} {
+
+test plugInFilter-1.3.2w {fconfigure command} -constraints win -body {
+    fconfigure $plugChan
+} -returnCodes 0 -match regexp -result [list -blocking 1 -buffering full -buffersize 4096 -encoding .* -eofchar {{} {}} -translation {auto crlf} -channel $f -peek 0 -inset {no internal arguments} -outset {no internal arguments}]
+
+test plugInFilter-1.3.2u {fconfigure command} -constraints unix -body {
+    fconfigure $plugChan
+} -returnCodes 0 -match regexp -result [list -blocking 1 -buffering full -buffersize 4096 -encoding .* -eofchar {{} {}} -translation {auto lf} -channel $f -peek 0 -inset {no internal arguments} -outset {no internal arguments}]
+
+test plugInFilter-1.3.3 {fconfigure command} -body {
+    list [catch {
+        fconfigure $plugChan -badoption
+    } msg] $msg 
+} -result {1 {bad option "-badoption": must be -blocking, -buffering, -buffersize, -eofchar, -translation, or a channel type specific option}}
+
+
+test plugInFilter-1.3.4 {fconfigure command} -body {
+    list [catch {
+        fconfigure $plugChan -channel
+    } msg] $msg 
+} -result [list 0 [list $f]]
+
+test plugInFilter-1.3.5 {fconfigure command} -body {
+    list [catch {
+        fconfigure $plugChan -channel something
+    } msg] $msg 
+} -result {1 {can't set channel after plug-in channel is opened}}
+
+
+test plugInFilter-1.3.6 {fconfigure command} -body {
+    list [catch {
+        fconfigure $plugChan -peek
+    } msg] $msg 
+} -result {0 0}
+
+test plugInFilter-1.3.7 {fconfigure command} -body {
+    list [catch {
+        fconfigure $plugChan -peek badvalue
+    } msg] $msg 
+} -result {1 {expected boolean value but got "badvalue"}}
+
+#
+# Apparently the wording of the file channel's error strings
+# changed from 7.6 to 8.0.
+#
+if {[string compare [string index $tcl_version 0] "7"]} {
+
+test plugInFilter-1.3.8 {fconfigure command} -body {
+    list [catch {
+        fconfigure $plugChan -peek yes
+    } msg] $msg 
+} -result [list 1 [concat {bad option "-peek": should be one of -blocking, -buffering, -buffersize, -encoding, -eofchar, or -translation: subordinated channel error in} $f]]
+
+} else {
+
+test plugInFilter-1.3.8 {fconfigure command} -body {
+    list [catch {
+        fconfigure $plugChan -peek yes
+    } msg] $msg 
+} [list 1 [concat {bad option "-peek": should be -blocking, -buffering, -buffersize, -eofchar, -translation, or channel type specific option: subordinated channel error in} $f]]
+
+}
+
+test plugInFilter-1.3.9 {fconfigure command} -body {
+    list [catch {
+        fconfigure $plugChan -inset
+    } msg] $msg 
+} -result {0 {{no internal arguments}}}
+
+test plugInFilter-1.3.10 {fconfigure command} -body {
+    list [catch {
+        fconfigure $plugChan -outset
+    } msg] $msg 
+} -result {0 {{no internal arguments}}}
+
+test plugInFilter-1.3.11 {fconfigure command} -body {
+    list [catch {
+        fconfigure $plugChan -inset anything
+    } msg] $msg 
+} -result {1 {can't set option anything for input filter}}
+
+test plugInFilter-1.3.12 {fconfigure command} -body {
+    list [catch {
+        fconfigure $plugChan -outset anything
+    } msg] $msg 
+} -result {1 {can't set option anything for output filter}}
+
+test plugInFilter-1.3.13 {dp_copy command} -body {
+    list [catch {
+	set f1 [open ___out {WRONLY CREAT}]
+	set plugChan2 [dp_connect plugfilter -channel $f1]
+	dp_copy $plugChan $plugChan2
+    } msg] $msg 
+} -result {0 32768}
+
+test plugInFilter-1.3.14 {dp_copy command} -body {
+    list [catch {
+	close $f
+	close $plugChan
+	close $plugChan2
+	close $f1
+    } msg] $msg 
+} -result {0 {}}
+
+test plugInFilter-1.3.15 {dp_copy command} -body {
+    list [catch {
+	set g [open ___out {RDONLY}]
+        set y [read $g 100000]
+	close $g
+
+	file delete ___out
+
+	if {[expr [string compare $x $y] == 0]} {
+	    set rez ok
+	} else {
+	    set rez failed
+	}
+    } msg] $msg 
+} -result {0 ok}
+
+# The following brace matches the line below:
+# if {$plugChan != ""} 
+
+}
+
+test plugInFilter-1.4.1 {dp_connect & dp_copy &dp_close command} -body {
+    list [catch {
+	set f [open ___tmp {RDONLY}]
+	set plugChan [dp_connect plugfilter -channel $f -infilter plug1to2]
+	set h [open ___out2 {WRONLY CREAT}]
+	dp_copy $plugChan $h
+	close $f
+	close $plugChan
+	close $h
+    } msg] $msg 
+} -result {0 {}}
+
+test plugInFilter-1.4.2 {dp_connect & dp_copy &dp_close command} -body {
+    list [catch {
+	set f [open ___out {WRONLY CREAT}]
+	set plugChan [dp_connect plugfilter -channel $f -outfilter plug2to1]
+	set h [open ___out2 {RDONLY}]
+	dp_copy $h $plugChan
+	close $h
+	close $plugChan
+	close $f
+    } msg] $msg 
+} -result {0 {}}
+
+test plugInFilter-1.4.3 {result of 1.4.1. & 1.4.2} -body {
+    list [catch {
+	set f [open ___out {RDONLY}]
+	set y [read $f 100000]
+	close $f
+	file delete ___out ___tmp ___out2
+	if {[expr [string compare $x $y] == 0]} {
+	    set rez ok
+	} else {
+	    set rez failed
+	}	
+    } msg] $msg 
+} -result {0 ok}
+
+::tcltest::cleanupTests
+return $::tcltest::numTests(Failed)
+
+
+
+
+
+
+
+

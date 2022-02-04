@@ -1,0 +1,5 @@
+set id 0
+proc GenId {} {
+    global id
+    incr id
+}

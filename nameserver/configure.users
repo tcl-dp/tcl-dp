@@ -1,0 +1,53 @@
+#-----------
+#
+# Specify the nameserver configuration:
+#	DP_BINDIR = where to install tcl-dp machine dependent files
+#	NS_BINDIR = where to install nameserver machine dependent files
+#	NS_LIBDIR = where to install nameserver machine independent files
+#	NS_ADMDIR = where to install nameserver administrative files
+#	MANDIR = where to install nameserver man pages
+#	NSPORT = well known port for nameserver
+#	LAUNCHPORT = inetd port to use for starting the launchd
+#	HOSTS = list of host to use for running the name server
+#
+#-----------
+
+DP_BINDIR=/usr/u/multimed/bin
+NS_BINDIR=/usr/u/multimed/ns/bin
+NS_LIBDIR=/usr/u/multimed/ns/lib
+NS_ADMDIR=/usr/u/multimed/ns/adm
+MANDIR=/usr/u/multimed/ns/man
+NSPORT=4765
+LAUNCHPORT=1604
+HOSTS="suttung.cs.cornell.edu titan.cs.cornell.edu"
+
+#----------
+#
+# COPTS specifies options to the c compiler to be used
+# for all .c files, set to -g if you want debugging info
+# set to -O for optimized compiling.
+#
+#----------
+
+COPTS="-O"
+
+#----------------
+#
+# You probably don't need to touch these unless you get a "can't find
+# include file" or "can't find library file" error during compilation
+# If you do, specify one or more alternate directories where the missing
+# files can be found, rerun condifure, and rerun make.
+#
+#----------------
+
+INCLUDE_PATH="/usr/public/share/include"
+LIB_PATH="/usr/local/public/lib"
+
+#----------------
+#
+# Where to install the dp library files (same as DP_LIBRARY in the
+# main dp directory).
+#
+#----------------
+
+DP_LIBRARY=/usr/public/share/lib/dp

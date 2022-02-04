@@ -1,0 +1,3 @@
+set handle [ns_Init]
+catch {dp_RPC $handle ns_ExitAll}
+exit

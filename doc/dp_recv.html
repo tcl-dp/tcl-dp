@@ -1,0 +1,34 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>dp_recv</title>
+</head>
+
+<body>
+
+<h3>dp_recv</h3>
+
+<p><strong>Syntax</strong></p>
+
+<pre>dp_recv <em>chanId</em></pre>
+
+<p><strong>Comments</strong></p>
+
+<p>dp_recv allows one to bypass the Tcl I/O layer and call the
+channel's receive method directly. There are several problems
+with Tcl's I/O system because it buffers data internally and it
+is line or file-based.</p>
+
+<p>dp_recv calls the channel's receive method <strong>once</strong>
+and returns the received data.</p>
+
+<p><strong>Examples</strong></p>
+
+<pre>set a [dp_recv $chan]</pre>
+</body>
+</html>
+

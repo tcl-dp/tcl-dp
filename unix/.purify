@@ -1,0 +1,14 @@
+suppress umr _s_cpaddr
+suppress umr _s_soreceivexx
+suppress umr bind
+suppress umr __bind
+suppress umr _nsc_trydoorcall; _door_gethostbyname_r
+suppress umr process_gethost
+suppress umr _s_sosendxx
+suppress umr _get_hostserv_inetnetdir_byname
+suppress umr _s_synch
+suppress umr __accept
+suppress umr accept
+suppress umr listen
+suppress par DLOpEN; SO_per_src_lookup; nss_get_backend_u; nss_search; _switch_getservbyname_r
+suppress par DLOpEN; SO_per_src_lookup; nss_get_backend_u; nss_search; _switch_getservbyport_r

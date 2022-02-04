@@ -1,0 +1,57 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content>
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>UDP Channel</title>
+</head>
+
+<body bgcolor="#C0C0C0" text="#000000" link="#0000EE"
+vlink="#551A8B" alink="#FF0000">
+
+<h3>UDP Channel</h3>
+
+<p><b>Syntax</b></p>
+
+<p><tt>dp_connect udp -host </tt><em><tt>hostname</tt></em><tt>
+-port </tt><em><tt>thePort</tt></em><tt> -myaddr </tt><em><tt>addr</tt></em><tt>
+-myport </tt><em><tt>port</tt></em></p>
+
+<p><b>Comments</b></p>
+
+<p>UDP&nbsp;is a stripped down version of TCP.&nbsp;
+UDP&nbsp;does the bare necessities and nothing more:&nbsp;it does
+not do error checking, reliabilitiy or packet sequencing.&nbsp;
+It is, however, much faster than TCP and allows dynamic
+configuration of the destination IP&nbsp;address and port.</p>
+
+<dl>
+    <dt><i>hostname</i> is the IP address or DNS&nbsp;hostname of
+        the destination machine and is optional.</dt>
+    <dt><i>thePort</i> is the destination port address and is
+        optional.</dt>
+    <dt><i>addr</i> is the local IP&nbsp;address and is optional.</dt>
+    <dt><i>port</i> is the local port and is optional.</dt>
+    <dt>&nbsp;</dt>
+    <dt>Note that if no arguments are given, &quot;dp_connect
+        udp&quot; will open a UDP&nbsp;socket but <b>fconfigure</b>
+        will need to be run on the channel before data can be
+        sent through it since the socket does not have a
+        configured destination.</dt>
+</dl>
+
+<p><b>Examples</b></p>
+
+<dl>
+    <dt><tt>dp_connect udp</tt></dt>
+    <dt><tt>dp_connect udp -host foo.com -port 1025<br>
+        dp_connect udp -myaddr foo.bar.com -myport 5150<br>
+        dp_connect udp -host foo.bar.com -port 5150 -myaddr
+        foo.org -myport 1066</tt></dt>
+</dl>
+</body>
+</html>
+

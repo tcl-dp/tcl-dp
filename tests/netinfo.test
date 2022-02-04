@@ -1,0 +1,98 @@
+# netinfo.test
+#
+#	This file tests the dp_netinfo command
+#
+
+# CMake creates testconfig.tcl from testconfig.tcl.in, substituting CMake variables.
+source [file join tests testconfig.tcl]
+
+
+test netinfo-noargs {dp_netinfo command} -body {
+    list [catch {
+	dp_netinfo
+    } msg] $msg
+} -result {1 {wrong # args: should be "dp_netinfo option arg"}}
+
+test netinfo-onearg {dp_netinfo command} -body {
+    list [catch {
+	dp_netinfo -foo
+    } msg] $msg
+} -result {1 {wrong # args: should be "dp_netinfo option arg"}}
+
+test netinfo-toomanyargs {dp_netinfo command} -body {
+    list [catch {
+	dp_netinfo one two three
+    } msg] $msg
+} -result {1 {wrong # args: should be "dp_netinfo option arg"}}
+
+# 
+# This test may not succeed everywhere.
+# 
+test netinfo-localhost {dp_netinfo command} -body {
+	dp_netinfo -address 127.0.0.1
+} -returnCodes 0 -match regexp -result {localhost.*}
+
+test netinfo-localhost {dp_netinfo command} -body {
+    list [catch {
+	set host [dp_netinfo -address 208.67.222.222]
+	string tolower $host
+    } msg] $msg
+} -result [list 0 resolver1.opendns.com]
+
+test netinfo-unknownoption {dp_netinfo command} -body {
+    list [catch {
+	dp_netinfo -option arg
+    } msg] $msg
+} -result {1 {dp_netinfo:  unknown option "-option"}}
+
+test netinfo-unknownip {dp_netinfo command} -body {
+    list [catch {
+	dp_netinfo -address "1.0.0.0"
+    } msg] $msg
+} -result {1 {dp_netinfo -address unknown host "1.0.0.0"}}
+
+test netinfo-unknownhost {dp_netinfo command} -body {
+    list [catch {
+	dp_netinfo -address .com
+    } msg] $msg
+} -result {1 {dp_netinfo -address unknown host ".com"}}
+
+#
+# This test will fail if there is a service at -1.
+# This test may take a few seconds.
+#
+test netinfo-unknownserviceport {dp_netinfo command} -body {
+    list [catch {
+	dp_netinfo -service -1
+    } msg] $msg
+} -result {1 {dp_netinfo -service unknown service/port# "-1"}}
+
+#
+# This test may take a few seconds.
+#
+test netinfo-unknownservicename {dp_netinfo command} -body {
+    list [catch {
+	dp_netinfo -service
+    } msg] $msg
+} -result {1 {wrong # args: should be "dp_netinfo option arg"}}
+
+test netinfo-num2name {dp_netinfo command} -body {
+    list [catch {
+	lindex [dp_netinfo -service 21] 0
+    } msg] $msg
+} -result {0 ftp}
+
+test netinfo-name2num {dp_netinfo command} -body {
+    list [catch {
+	lindex [dp_netinfo -service ftp] 1
+    } msg] $msg
+} -result {0 21}
+
+::tcltest::cleanupTests
+return $::tcltest::numTests(Failed)
+
+
+
+
+
+

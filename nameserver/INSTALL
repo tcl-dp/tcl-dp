@@ -1,0 +1,4 @@
+edit configure.users
+./configure
+make install
+startns

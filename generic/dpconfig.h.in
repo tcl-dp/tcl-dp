@@ -1,0 +1,17 @@
+/* Configuration header file dpconfig.h is automatically
+ * created by cmake from dpconfig.h.in. */
+
+#ifndef DPCONFIG_H
+#define DPCONFIG_H
+
+#define DP_PACKAGE "@PROJECT_NAME@"
+#define DP_MAJOR_VERSION @DP_MAJOR_VERSION@
+#define DP_MINOR_VERSION @DP_MINOR_VERSION@
+#define DP_VERSION "@DP_VERSION@"
+#define DP_LIBRARY_DIRECTORY "@DP_LIBRARY_DIRECTORY@"
+
+#define DP_CHANNEL_VERSION @DP_CHANNEL_VERSION@
+
+#cmakedefine USE_TCL_STUBS
+
+#endif

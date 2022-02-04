@@ -1,0 +1,359 @@
+# email.test
+#
+#	This file tests the correct functioning of the email channels.
+#
+# The email test destroys your ~/.forward file, so unless you are
+# interested in the email channel, skip this test with,
+#     ::tcltest::configure -notfile email.test
+# in all.tcl.
+#
+# For unix systems: if this test fails, delete all files of the 
+# form ~/.email*, and check the status of your ~/.forward file.
+
+# CMake creates testconfig.tcl from testconfig.tcl.in, substituting CMake variables.
+source [file join tests testconfig.tcl]
+
+
+# Windows does not have an email channel
+#
+if {$tcl_platform(platform) == "windows"} {
+	puts stdout "Skipping the email test because Windows does not have an email channel."
+	::tcltest::cleanupTests
+	# Return a failure status
+	return 1
+}
+
+# CMake creates testconfig.tcl from testconfig.tcl.in, substituting CMake variables.
+source [file join tests testconfig.tcl]
+
+#
+# The user should define here his/her email address as the system defines it.
+# This version will work only if $USER@hostname is a valid email address for
+# the system DP is running on now.
+#
+set myEmailAddress "$tcl_platform(user)@[info hostname]"
+
+
+test email-1.1.1 {dp_connect command} -body {
+    list [catch {
+        dp_connect email -bar
+    } msg] $msg 
+} -result {1 {unknown option "-bar", must be -address or -identifier}}
+
+test email-1.1.2 {dp_connect command} -body {
+    list [catch {
+        dp_connect email -bar foo
+    } msg] $msg 
+} -result {1 {unknown option "-bar", must be -address or -identifier}}    
+
+#
+# Test argument missing checks.
+#
+
+test email-1.2.1 {dp_connect command} -body {
+    list [catch {
+        dp_connect email -address
+    } msg] $msg 
+} -result {1 {value for "-address" missing}}    
+
+
+test email-1.2.2 {dp_connect command} -body {
+    list [catch {
+        dp_connect email -identifier
+    } msg] $msg 
+} -result {1 {value for "-identifier" missing}}
+
+
+test email-1.2.3 {dp_connect command} -body {
+    list [catch {
+        dp_connect email
+    } msg] $msg 
+} -result {1 {address and/or identifier not defined for email channel}}
+
+
+test email-1.2.4 {dp_connect command} -body {
+    list [catch {
+        dp_connect email -address $myEmailAddress
+    } msg] $msg 
+} -result {1 {address and/or identifier not defined for email channel}}
+
+
+test email-1.2.5 {dp_connect command} -body {
+    list [catch {
+        dp_connect email -identifier 100
+    } msg] $msg 
+} -result {1 {address and/or identifier not defined for email channel}}
+
+
+#
+# Test type checking of arguments.
+#
+
+test email-1.3.1 {dp_connect command} -body {
+    list [catch {
+        dp_connect email -address ""
+    } msg] $msg 
+} -result {1 {the address for an email channel can not be empty or start with a '*'}}
+
+   
+test email-1.3.2 {dp_connect command} -body {
+    list [catch {
+        dp_connect email -address "*dp_list"
+    } msg] $msg 
+} -result {1 {the address for an email channel can not be empty or start with a '*'}}
+
+
+test email-1.3.3 {dp_connect command} -body {
+    list [catch {
+        dp_connect email -identifier 0
+    } msg] $msg 
+} -result {1 {the identifier for an email channel can not be zero, negative, or a string}}
+
+test email-1.3.4 {dp_connect command} -body {
+    list [catch {
+        dp_connect email -identifier -45
+    } msg] $msg 
+} -result {1 {the identifier for an email channel can not be zero, negative, or a string}}
+
+test email-1.3.5 {dp_connect command} -body {
+    list [catch {
+        dp_connect email -identifier "just a string"
+    } msg] $msg 
+} -result {1 {expected integer but got "just a string"}}
+
+test email-1.3.6 {dp_connect command} -body {
+	dp_connect email -encoding badValue
+} -returnCodes 1 -result {the identifier for an email channel can not be zero, negative, or a string}
+
+test email-1.3.7 {dp_connect command} -body {
+	dp_connect email -encoding utf-32
+} -returnCodes 0 -result {}
+
+test email-1.3.8 {dp_connect command} -body {
+	dp_connect email -encoding utf-32
+} -returnCodes 0 -result utf-32
+
+
+#
+#
+#
+#
+
+set eChannel {}
+test email-1.4.1 {dp_connect command} -body {
+    list [catch {
+        set eChannel [dp_connect email -address $myEmailAddress -identifier 100]
+    	string range $eChannel 0 4
+    } msg] $msg 
+} -result {0 email}
+
+
+if {$eChannel != ""} {
+
+
+#
+# fconfigure tests
+#
+
+
+test email-1.4.2 {fconfigure email} -body {
+	fconfigure $eChannel
+} -returnCodes 0 -match regexp -result {-blocking 1 -buffering full -buffersize 4096 -encoding [^ ]+ -eofchar {{} {}} -translation {auto lf} -address .+@.+ -identifier 100 -peek 0 -sequence 0}
+
+
+test email-1.4.3 {fconfigure email} -body {
+	fconfigure $eChannel -badopt
+} -returnCodes 1 -result {bad option "-badopt": must be -blocking, -buffering, -buffersize, -eofchar, -translation, or a channel type specific option}
+
+test email-1.4.4 {fconfigure email} -body {
+    list [catch {
+        fconfigure $eChannel -address something
+    } msg] $msg 
+} -result {1 {can't set address after email channel is opened}}
+
+test email-1.4.5 {fconfigure email} -body {
+    list [catch {
+        fconfigure $eChannel -identifier 999
+    } msg] $msg 
+} -result {1 {can't set identifier after email channel is opened}}
+
+
+test email-1.4.6 {fconfigure email} -body {
+    list [catch {
+        fconfigure $eChannel -blocking no
+    } msg] $msg 
+} -result {0 {}}
+
+
+test email-1.4.7 {fconfigure email} -body {
+    list [catch {
+        fconfigure $eChannel -blocking
+    } msg] $msg 
+} -result {0 0}
+
+test email-1.4.8 {fconfigure email} -body {
+    list [catch {
+        fconfigure $eChannel -peek yes
+    } msg] $msg 
+} -result {0 {}}
+
+test email-1.4.9 {fconfigure email} -body {
+    list [catch {
+        fconfigure $eChannel -peek
+    } msg] $msg 
+} -result {0 1}
+
+test email-1.4.10 {fconfigure email} -body {
+    list [catch {
+        fconfigure $eChannel -peek wrong
+    } msg] $msg 
+} -result {1 {expected boolean value but got "wrong"}}
+
+
+test email-1.4.11 {fconfigure email} -body {
+    list [catch {
+        fconfigure $eChannel -peek 0
+    } msg] $msg 
+} -result {0 {}}
+
+test email-1.4.12 {fconfigure email} -body {
+    list [catch {
+        fconfigure $eChannel -buffering no
+    } msg] $msg 
+} -result {0 {}}
+
+
+#
+# Test send/receive
+#
+
+test udp-1.5.1 {send email} -body {
+    list [catch {
+	puts -nonewline $eChannel  "Test1\n"
+    } msg] $msg
+} -result {0 {}}
+
+
+
+proc SetTo1 {} {
+    global flag
+    set flag 1
+}
+
+set flag 0
+
+proc SetTo2 {} {
+    global flag
+    set flag 2
+}
+
+
+test email-1.5.2 {fileevent writeable email} -body {
+    list [catch {
+	fileevent $eChannel writable SetTo2
+	vwait flag
+	set flag
+    } msg] $msg 
+} -result {0 2}
+
+# Try out the peek option.
+
+test email-1.5.3 {peek & fileevent readable email} -body {
+    list [catch {
+	fconfigure $eChannel -peek yes
+	fileevent $eChannel writable {}
+	fileevent $eChannel readable SetTo1
+
+	# wait for the first message to arrive
+
+	while {$flag != 1} {
+	    vwait flag
+	}
+	set x [list $flag [read $eChannel] [read $eChannel]]
+    } msg] $msg 
+} -result [list 0 [list 1 "Test1\n" "Test1\n"]]
+
+# Read the two messages that were sent after resetting the peek option.
+
+test email-1.5.4 {peek & fileevent & readable email} -body {
+    list [catch {
+	puts -nonewline $eChannel "Test2\n"
+	fconfigure $eChannel -peek no
+	set flag 0
+	set x [list [read $eChannel]]
+
+	# wait for the second message to arrive
+
+	while {$flag != 1} {
+	    vwait flag
+	}
+	set x [lappend x  [read $eChannel]]
+    } msg] $msg 
+} -result [list 0 [list "Test1\n" "Test2\n"]]
+
+
+test email-1.5.5 {close email} -body {
+    list [catch {
+	close $eChannel
+    } msg] $msg 
+} -result {0 {}}
+
+
+test email-1.5.6 {close email} -body {
+    list [catch {
+	close $eChannel
+    } msg] $msg 
+} -result {1 {can not find channel named "email0"}}
+
+
+test email-1.5.7 {test send/receive email} -body {
+    list [catch {
+	set x "0123456789abcdef"
+	set y "qqwertyuiopasdfg"
+	for {set i 0} {$i < 6} {set i [expr $i + 1]} {
+	    set x $x$x
+	    set y $y$y
+	}
+
+	set eChannel [dp_connect email -address $myEmailAddress -identifier 100]
+	fconfigure $eChannel -buffering none
+
+	puts -nonewline $eChannel $x
+	puts -nonewline $eChannel $y
+
+	set flag 0
+
+	fileevent $eChannel readable SetTo1
+
+	vwait flag
+
+	set readX [read $eChannel 1024]
+
+	set flag 0
+	vwait flag
+
+	set readY [read $eChannel 1024]
+
+	close $eChannel
+
+
+	if {([string compare $x$y $readX$readY] == 0)||
+	    ([string compare $x$y $readY$readX] == 0)} {
+		set rez ok
+	    } else {
+		set rez failed
+	    }
+
+	set rez
+
+    } msg] $msg 
+} -result {0 ok}
+
+
+# The following close brace matches the line above:
+#	if {$eChannel != ""} 
+
+}
+
+::tcltest::cleanupTests
+return $::tcltest::numTests(Failed)

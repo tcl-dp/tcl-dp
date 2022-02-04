@@ -1,0 +1,5 @@
+#!@DP_BINDIR@/dptcl -f
+
+catch {set handle [ns_Init]}
+catch {dp_RDO $handle ns_ExitAll}
+exit

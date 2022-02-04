@@ -1,0 +1,46 @@
+# Test suite configuration file, intended to be sourced by all test scripts.
+#
+# This file is processed by CMake configuration_file() to substitute
+# Cmake variable names with their values.
+#
+# Ordinarily, This tests the software in the PROJECT_BINARY_DIR build directory.
+# To test the installed software in CMAKE_INSTALL_PREFIX, specify all.tcl
+# command line option "-constraints isInstallTest":
+#    tclsh all.tcl -constraints isInstallTest
+#
+# John McGehee http://www.voom.net 7/26/2010
+
+package require tcltest 2.2
+namespace import ::tcltest::*
+
+if {[testConstraint isInstallTest]} {
+	set softwareUnderTestDir {@CMAKE_INSTALL_PREFIX@}
+} else {
+	set softwareUnderTestDir {@PROJECT_BINARY_DIR@}
+}
+
+set auto_path [linsert $auto_path 0 $softwareUnderTestDir]
+package require -exact dp @DP_VERSION@
+
+# Script tests/make-server needs these values to pass to script tests/server
+set DP_VERSION @DP_VERSION@
+
+# Test install needs to know where the installation is
+set CMAKE_INSTALL_PREFIX {@CMAKE_INSTALL_PREFIX@}
+
+# tests/api.test needs to know the dpApiExample executable name (it might be dpApiExample or dpApiExample.exe)
+set DP_API_EXAMPLE_FILE @DP_API_EXAMPLE_FILE@
+
+# If tests are being run as root, issue a warning message.
+# Test constraint isNormalUser is also set.
+set isRootUser [expr {$tcl_platform(user) == "root" || $tcl_platform(user) == "Administrator"}]
+if {$isRootUser} {
+    puts stdout "WARNING: Some tests will fail when executed as user '$tcl_platform(user)',"
+    puts stdout "so they will be skipped per tcltest constraint isNormalUser."
+}
+
+# Test constraints to determine what individual tests should be skipped
+testConstraint isNormalUser [expr {! $isRootUser}]
+testConstraint tcl_msWindows [info exists tcl_msWindows]
+# TODO: Need to automatically detect IP multicast
+testConstraint isIpm 0

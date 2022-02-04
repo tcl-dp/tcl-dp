@@ -1,0 +1,106 @@
+<html>
+<title>dp_socketOption</title>
+<head>
+<h3>dp_socketOption - Change the options on a socket
+</h3>
+</head>
+<body>
+<HR>
+<pre>
+dp_socketOption sockId option ?arg?
+</pre>
+The dp_socketOption command provides access to the  setsockopt(2)
+and getsockopt(2) system calls.  If the optional arg is provided,
+the option is set on the socket sockId.  Otherwise,  the  current
+value of option associated with sockId is returned.  Currently, 3
+socket options can be adjusted:
+<pre>
+dp_socketOption sockId sendBuffer ?bytes?
+</pre>
+Sets/gets  the size of the send buffer for sockId.  The
+send buffer is the number of bytes that can be  buffered  in  the
+system before a send/recv or read/write call will block.  The default
+value is machine dependent.
+<pre>
+dp_socketOption sockId recvBuffer ?bytes?
+</pre>
+Sets/gets the size  of
+the  receive buffer for sockId.  The receive buffer is the number
+of bytes that can be buffered in  the  system  before  data  will
+cease  to  flow  on  a tcp socket, or be dropped on a udp socket.
+The default value is machine dependent.
+<pre>
+dp_socketOption sockId noblock ?yes|no?
+</pre>
+Sets/gets the non  blocking
+i/o mode for the connection associated with sockId.  This option
+will change the behavior of various transmission routines as
+described in dp_connect(n).  The default value is "no."
+<PRE>
+dp_socketOption sockId autoClose ?yes|no?
+</pre>
+Sets/gets the autoClose
+flag for the connection associated with sockId.  If the autoClose
+flag is "yes", then any errors detected in transmission will  automatically
+close the file.  This case typically arrives when the
+connection is closed unexpectedly.  Users can attach callbacks to
+the  closing  of the file using the dp_atclose facility.  The default
+value is "yes."
+<PRE>
+dp_socketOption sockId keepAlive  ?yes|no?
+</PRE>
+Sets/gets  the  "Keep
+Alive"  flag  for  the tcp connection associated with sockId.  If
+the "Keep Alive" flag is on, the system sends periodic  transmission
+of  messages on a tcp socket.  Should  the connected  party
+fail to respond to these messages, the connection  is  considered
+broken  and  will  be closed automatically.  The default value is
+"no."
+<pre>
+dp_socketOption sockId reuseAddr ?yes|no?
+</pre>
+Sets/gets the flag  for
+local  address  reuse.  When set, other processes can "take over"
+the port number of the socket.  This option is useful in combination
+with server sockets (i.e., socket created using "dp_connect
+-server"), since it allows the address to be  reused  immediately
+if the server crashes.  The default value is "no."
+<pre>
+dp_socketOption sockId linger  ?seconds?
+</pre>
+Sets/gets  the  "linger
+time"  for a socket.  A value of 0 means that, when the socket is
+closed, the close function call will return immediately  and  the
+system  will  attempt  to send any unsent data in the background.
+If a non-zero value is specified, the close  will  block  for  at
+most that many seconds have passed while the system tries to send
+any unsent data.  In current implementations, the actual value of
+the linger time is ignored.  The default value is 0.
+<pre>
+dp_socketOption sockId ttl int
+</pre>
+Sets/gets the ttl "Time  to  Live"
+of  multicast  packets transmitted from sockId.  By using a small
+value, you can limit the broadcast range of the packet.
+<pre>
+dp_socketOption sockId loopBack  ?yes|no?
+</pre>
+Sets/gets  the  "loopBack"  flag  for the multicast socket associated
+with sockId.  If
+the "loopBack" flag is "no", the sender will not receive  a  copy
+of  the  packets  it transmits.  If the "loopBack" flag is "yes",
+the sender will receive a copy of the packets it transmits.
+<pre>
+dp_socketOption sockId addMbr|dropMbr group
+</pre>
+Sets/gets the member-
+ship  for the multicast socket associated with sockId.  Processes
+use this option to join or leave a given  multicast  group.   The
+last  argument,  group,  should  be  a valid IP-multicast address
+represented in "dot" notation.
+<hr>
+Brian Smith (bsmith@cs.berkeley.edu)<br>
+Steve Yen (syen@cs.berkeley.edu)<br>
+Stephen Tu (tus@roger-rabbit.cs.berkeley.edu)<br>
+</body>
+</html>

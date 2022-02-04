@@ -1,0 +1,353 @@
+#########################################
+#
+# RPC test suite for Tcl-DP 4.0
+#
+
+# CMake creates testconfig.tcl from testconfig.tcl.in, substituting CMake variables.
+source [file join tests testconfig.tcl]
+
+
+set sourceDir [file dir [file dir [info script]]]
+# Start an RPCServer with the script make-server
+set makeServerScript [file join ${sourceDir} tests make-server]
+puts "[info script] is sourcing '$makeServerScript'."
+source $makeServerScript
+
+proc MyCheck {args} {}
+
+proc fileserv {filename} {
+    set openfile [open $filename r]
+    read $openfile
+}
+
+catch {dp_atexit clear}
+
+set hostname [info hostname]
+set hostinet [dp_netinfo -address $hostname]
+
+#----------------------------------------------------------------------
+#
+# Connectivity tests
+#
+test rpc-1.1 {creation of rpc client using hostname} -body {
+    list [catch {
+    	set server1 [dp_MakeRPCClient $hostname $S_PORT]
+	string match tcp* $server1
+    } msg] $msg
+} -result {0 1}
+
+test rpc-1.2 {creation of rpc client using internet address} -body {
+    list [catch {
+    	set server2 [dp_MakeRPCClient $hostinet $S_PORT]
+	string match tcp* $server2
+    } msg] $msg
+} -result {0 1}
+
+
+# This if controls whether the rest of the tests will be performed.
+#
+test rpc-1.3 {both servers are ready} -body {
+	expr {[string match tcp* $server1] && [string match tcp* $server2]}
+} -result 1
+
+#------------------------------------------------------------------------------
+#
+# Basic message passing tests
+#
+test rpc-2.1 {Basic message passing} -body {
+    list [catch {
+	dp_RPC $server1 set mike rules
+    } msg] $msg
+} -result {0 rules}
+
+test rpc-2.2 {basic error handling} -body {
+	dp_RPC $server1 set nonexistentVariable
+} -returnCodes 1 -result {can't read "nonexistentVariable": no such variable}
+
+test rpc-2.3 {timeout routines} -body {
+    list [catch {
+   	catch { dp_RPC $server1 -timeout 50 after 1000 } msg
+	string match "RPC timed out on channel tcp*" $msg
+    } msg] $msg
+} -result {0 1}
+
+proc errorTest {file} {
+    return "Caught error on $file"
+}
+
+test rpc-2.4 {timeout routines} -body {
+    list [catch {
+    	set rc [dp_RPC $server1 -timeout 50 -timeoutReturn errorTest after 1000]
+    	string match "Caught error on tcp*" $rc
+    } msg] $msg
+} -result {0 1}
+
+
+# tests dp_CancelRPC when it's given a filehandle and when it isn't 
+test rpc-2.5 {cancel rpc test} -body {
+    after idle dp_CancelRPC $server1
+    catch {dp_RPC $server1 -timeout 5000 -timeoutReturn puts -events idle after 5000} msg
+    after idle dp_CancelRPC all
+    catch {dp_RPC $server1 -timeout 5000 -timeoutReturn puts -events idle after 5000} msg1
+    set xx [list [string match "RPC cancelled on channel tcp*" $msg] \
+    	 [string match "RPC cancelled on channel tcp*" $msg1] ]
+} -result {1 1}
+
+
+# Test 2.6 is split into individual tests that work together using the global
+# variables id remoteChanId and newChanId.
+# tells the remote server to open up another socket, using 
+# dp_connect -server and dp_accept (at the server!).  Then it calls
+# the new connection to make sure that RPCs work.
+test rpc-2.6.1 {tell the remote interpreter to open up another listening server} -body {
+    global id
+	set id [dp_RPC $server1 dp_connect tcp -server true -myport 9901]
+} -match regexp -result {tcp[0-9]+}
+	
+test rpc-2.6.2 {wait for connection on other side} -body {
+    global id remoteChanId newChanId
+	# dp_RDO does not block on this side, but dp_accept blocks on the other side
+	dp_RDO $server1 eval "set chanIdInRemoteInterp \[lindex \[dp_accept $id\] 0\]"
+} -result {}
+	
+test rpc-2.6.3 {make the connection to the new server from this side} -body {
+    global id remoteChanId newChanId
+	set newChanId [dp_connect tcp -host $hostname -port 9901]
+} -match regexp -result {tcp[0-9]+}
+
+test rpc-2.6.4 {Register the new connection on this side} -body {
+    global id remoteChanId newChanId
+	dp_admin register $newChanId
+} -result {}
+	
+test rpc-2.6.5 {get the channel ID of this connection from the other side} -body {
+    global id remoteChanId newChanId
+	# Note that $remoteChanId is defined in the local interpreter, and
+	# $chanIdInRemoteInterp is defined in the remote interpreter.
+	set remoteChanId [dp_RPC $server1 set chanIdInRemoteInterp]
+} -match regexp -result {tcp[0-9]+}
+
+test rpc-2.6.6 {make sure the channel IDs are all unique} -body {
+	global id remoteChanId newChanId
+	expr {$id != $newChanId && $newChanId != $remoteChanId && $id != $remoteChanId}
+} -result 1
+
+test rpc-2.6.7 {register the new connection on the other side} -body {
+    global id remoteChanId newChanId
+	dp_RPC $server1 dp_admin register $remoteChanId
+} -result {}
+
+# Now we're all connected up and ready to remotely execute commands	
+test rpc-2.6.8 {send a Tcl command to set the variable testVarInRemoteInterp on the other side} -body {
+    global id remoteChanId newChanId
+	dp_RPC $newChanId set testVarInRemoteInterp "testValue"
+} -result "testValue"
+	
+test rpc-2.6.9 {examine the value of variable testVarInRemoteInterp on the other side} -body {
+    global id remoteChanId newChanId
+	dp_RPC $server1 -timeout 10000 -timeoutReturn puts set testVarInRemoteInterp
+} -result "testValue"
+
+# this tests if we will correctly handle 
+# multiple RPCs while waiting.  Also tests what happens when
+# a badly formatted RPC packet is sent to the socket waiting
+# for rpc messages.  Third, tests if RPCs can handle getting
+# return values in multiple packets.
+test rpc-2.7 {multiple RPCs with waiting} -body {
+    list [catch {
+	global id remoteChanId newChanId
+
+	for {set i 0} {$i < 500} {incr i} {
+	    dp_RPC $newChanId set a $i
+	}
+
+	# set up the fileserver proc on the remote server
+	dp_RPC $newChanId proc fileserv {filename} {
+	    set openfile [open $filename r]
+	    read $openfile
+	}
+
+	# read over a large file (dpRPC.c) to force dp_RPC to get
+	# its return value in multiple packets.
+	set filename [file join ${sourceDir} generic dpRPC.c]
+	dp_RPC $newChanId fileserv $filename
+	catch {dp_RPC $newChanId -timeout 10 fileserv $filename}
+
+	dp_RPC $newChanId dp_RPC $remoteChanId set a 33
+	set result [dp_RPC $newChanId set a]
+
+	list $a $result
+    } msg2] $msg2
+} -result {0 {33 499}}
+after idle catch {close $newChanId}
+
+# tests to make sure nested RPC's are allowed
+test rpc-2.8 {nested RPC test} -body {
+    list [catch {
+	dp_RPC $server1 set a 100
+	after idle {catch {dp_RPC $server1 set a 9} msg}
+	dp_RPC $server1 -events {rpc idle} after 5000
+	set a [dp_RPC $server1 set a]
+	list $a $msg
+    } msg2] $msg2
+} -result {0 {9 9}}
+
+# a silly little test to make sure dp correctly processes all event flags.
+test rpc-2.9 {rpc event list test} -body {
+    list [catch {
+	dp_RPC $server1 -events [list x rpc file timer idle all none] set a 9
+    } msg] $msg
+} -result {0 9}
+
+#------------------------------------------------------------------------------
+#
+# RDO tests
+#
+
+test rpc-3.1 {Basic RDO} -body {
+    list [catch {
+	dp_RPC $server1 catch {unset a}
+	dp_RDO $server1 set a rpc-3.1
+	dp_RPC $server1 set a
+    } msg] $msg
+} -result {0 rpc-3.1}
+
+test rpc-3.2 {Basic RDO with callback} -body {
+    list [catch {
+	set rdoResults 0
+	dp_RDO $server1 set a rpc-3.2
+	dp_RDO $server1 -callback "set rdoResults" set a
+	dp_RPC $server1 set a synchronize
+	set rdoResults
+    } msg] $msg
+} -result {0 rpc-3.2}
+
+test rpc-3.3 {Multiple RDOs, each with callback} -body {
+    list [catch {
+	set RDO1 0
+	set RDO2 0
+	dp_RDO $server1 -callback "set RDO1" set a 3.3a
+	dp_RDO $server1 -callback "set RDO2" set a 3.3b
+	dp_RPC $server1 -events all set a synchronize
+	list $RDO1 $RDO2
+    } msg] $msg
+} -result {0 {3.3a 3.3b}}
+
+test rpc-3.4 {Basic RDO error handling} -body {
+    list [catch {
+	set RDOerr 0
+	dp_RDO $server1 unset a
+	dp_RDO $server1 -onerror "set RDOerr" set a
+	dp_RPC $server1 set a synchronize
+	set RDOerr
+    } msg] $msg
+} -result {0 {can't read "a": no such variable}}
+
+test rpc-3.5 {Basic RDO error generation (error will crash test)} -body {
+    list [catch {
+    	unset msg
+	dp_RPC $server1 -events all unset a
+	catch {dp_RDO $server1 -onerror none set a}
+    } msg] $msg
+} -result {0 0}
+
+test rpc-3.6 {RDO error handling for multiple RDO's} -body {
+    list [catch {
+	set RDOerr1 rpc-3.6a
+	set RDOerr2 rpc-3.6b
+	dp_RDO $server1 -onerror none unset a
+	dp_RDO $server1 -onerror none unset b
+	dp_RDO $server1 -onerror "set RDOerr1" set a
+	dp_RDO $server1 -onerror "set RDOerr2" set b
+	dp_RPC $server1 set a synchronize
+	list $RDOerr1 $RDOerr2
+    } msg] $msg
+} -result {0 {{can't read "a": no such variable} {can't read "b": no such variable}}}
+
+test rpc-3.7 {RDO callback handling for multiple RDO's} -body {
+    list [catch {
+	set RDO1    rpc3.7a
+	set RDO2    rpc3.7b
+	dp_RDO $server1 set a rpc3.7c
+	dp_RDO $server1 -onerror none unset b
+	dp_RDO $server1 -onerror none -callback "set RDO1" set a
+	dp_RDO $server1 -onerror none -callback "set RDO2" set b
+	dp_RPC $server1 set a synchronize
+	list $RDO1 $RDO2
+    } msg] $msg
+} -result {0 {rpc3.7c rpc3.7b}}
+
+test rpc-3.8 {Mixed RDO error and callback handling for multiple RDO's} -body {
+    list [catch {
+	set RDOerr1 rpc3.8a
+	set RDOerr2 rpc3.8b
+	set RDO1    rpc3.8c
+	set RDO2    rpc3.8d
+	dp_RDO $server1 set a hello
+	dp_RDO $server1 -onerror none unset b
+	dp_RDO $server1 -callback "set RDO1" -onerror "set RDOerr1" set a
+	dp_RDO $server1 -callback "set RDO2" -onerror "set RDOerr2" set b
+	dp_RPC $server1 set a synchronize
+	list $RDOerr1 $RDOerr2 $RDO1 $RDO2
+    } msg] $msg
+} -result {0 {rpc3.8a {can't read "b": no such variable} hello rpc3.8d}}
+
+test rpc-3.9 {mixed RPC and RDO with timeout} -body {
+    list [catch {
+	set RDO1    rpc3.9a
+	set RDO2    rpc3.9b
+	dp_RDO $server1 -callback "set RDO1" set a rpc3.9c
+	set rv1 [catch {dp_RPC $server1 -timeout 50 after 1000} msg1]
+	dp_RDO $server1 -callback "set RDO2" set a rpc3.9d
+	set rv2 [catch {dp_RPC $server1 set a rpc3.9e} msg2]
+	set msg2 [string match "RPC timed out*" $msg1]
+	list $rv1 $rv2 $RDO1 $RDO2 
+    } msg] $msg
+} -result {0 {1 0 rpc3.9c rpc3.9d}}
+
+
+#------------------------------------------------------------------------------
+#
+# Shutdown protocol tests
+#
+test rpc-4.1 {proper closing one end of an RPC} -body {
+    list [catch {
+	close $server1
+    } msg] $msg
+} -result {0 {}}
+
+test rpc-4.2 {check dp_atexit list} -body {
+    list [catch {
+	string match "\{close $server2\}" [dp_atexit list]
+    } msg] $msg
+} -result {0 1}
+
+test rpc-4.3 {close the remote interpreter} -body {
+    list [catch {
+	dp_RDO $server2 exit
+    } msg] $msg
+} -result {0 {}}
+
+catch {close $server2}
+
+test rpc-4.4 {check dp_atclose list} -body {
+    list [catch {
+	list [dp_atclose $server1 list] [dp_atclose $server2 list]
+    } msg] $msg
+} -result {0 {{} {}}}
+
+test rpc-4.5 {check server crashing} -body {
+    list [
+    	set rc [catch {close $server1} msg1]
+    	string match "can not find channel named*" $msg1
+    ] $rc
+} -result {1 1}
+
+
+# reset variable so server will quit also
+# just in case the channel is still viable.
+catch {dp_RDO $server1 set forever 42}
+
+::tcltest::cleanupTests
+return $::tcltest::numTests(Failed)
+

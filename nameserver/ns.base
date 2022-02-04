@@ -1,0 +1,1248 @@
+
+# source the nscap file
+if {[file exists $ns_adm/nscap] == 1} {
+#	puts "sourcing $ns_adm/nscap"
+	source $ns_adm/nscap
+} else {
+	puts stderr "Can't find nscap file."
+	exit 1
+}
+
+
+#
+# ns_Exit -- exit the server
+#
+proc ns_Exit {} {
+	exit 0
+}
+
+# 
+# ns_ExitAll -- exit the primary server and all its backups
+#
+proc ns_ExitAll {} {
+	global isPrimary
+	global nameServers
+	global serverID
+
+	if {$isPrimary == 1} {
+		for {set i 0} {$i < [llength $nameServers]} {incr i} {
+			if {$i == $serverID} continue
+			set host [GetHost [lindex $nameServers $i]]
+			set port [GetPort [lindex $nameServers $i]]
+			if [catch {set peer [dp_MakeRPCClient $host $port]} msg] {
+				nslog $msg
+				continue
+			}	
+		catch {dp_RDO $peer ns_Exit} msg
+		dp_CloseRPC $peer
+		}
+	} else {
+		return "Only the primary server can exit all servers."
+	}
+	ns_Exit
+}
+
+#
+# ns_IsPrimary -- return 1 if the server is the primary server, 0 otherwise
+#
+proc ns_IsPrimary {} {
+	global isPrimary
+
+	return $isPrimary
+}
+
+#
+# ns_GetServerID -- return the server ID
+#
+proc ns_GetServerID {} {	
+	global serverID
+
+	return $serverID
+}
+
+#
+# ns_WhoIsPrimary -- return who the primary server is
+#
+proc ns_WhoIsPrimary {} {
+	global primarySID
+
+	return $primarySID
+}
+
+
+#
+# ns_SetPrimarySID -- set the primary server ID
+#
+proc ns_SetPrimarySID {id} {
+	global primarySID
+	
+	set primarySID $id
+}
+
+#
+# ns_AreYouAlive -- should always return 1 if the server is up
+#
+proc ns_AreYouAlive {} {
+	return 1
+}
+
+#
+# ns_CmdCheck -- intercept the execution of unauthorized commands
+# over an RPC channel.
+#
+proc ns_CmdCheck {cmd args} {
+	set argc [llength $args]
+
+	switch -glob $cmd {
+		ns_* {return}
+		CMTP_Translate {return}
+		default {error "$cmd is not a legal ns command!"}
+	}
+}
+
+#######################################################################
+# Client Interface routines
+#
+#######################################################################
+
+#
+# ns_AuthenticateService -- ask the server to authenticate the service.
+# Returns a pair of tickets to be used for communication
+# between the client and the service.
+# If the service is not authentic, it will be marked dead
+#
+proc ns_AuthenticateService {srvcName} {
+	global srvcPort srvcHost
+	global srvcTicket srvcState
+
+	if {[VerifyService $srvcName] == 1} {
+		set srvc [AliasOf $srvcName]
+		if {[set srvcState($srvc)] == "running"} {
+			set port [set srvcPort($srvc)]
+			set host [set srvcHost($srvc)]
+			set ticket [set srvcTicket($srvc)]
+			
+			if {[catch {dp_MakeRPCClient $host $port} handle]} {
+				# The server is not running
+#				DeleteService $srvc
+                ns_ServiceState $srvc dead
+				error "$srvc is not running"
+			} else {
+				if {[dp_RPC $handle ns_Authenticate [lindex $ticket 0]] ==
+				[lindex $ticket 1]} {
+					# This is an authentic service
+					set newTicket [GenTicket]
+					dp_RPC $handle ns_RecordTicket $newTicket
+					return $newTicket
+				} else {
+					# This is not an authentic service
+					ns_ServiceState $srvc dead
+#					DeleteService $srvc
+					error "$srvc is being tampered with"
+				}
+			}
+		}
+	}
+	return {}	
+}
+
+#
+# ns_FindServices -- return a list of {srvc {host port} connections} where srvc
+# matches the pattern.
+# If the service is not running, {host port} will be empty.
+#
+proc ns_FindServices {pattern} {
+	global srvcPort 
+	global srvcHost
+	global srvcConn
+
+	set result {}
+	set srvcNames [ns_ListServices $pattern]
+	foreach x $srvcNames {
+		set srvc [AliasOf $x]
+		set port [set srvcPort($srvc)]
+		set host [set srvcHost($srvc)]
+		set conn [set srvcConn($srvc)]
+		lappend result [list $x [list $host $port] $conn]
+	}
+	return $result
+}
+
+#
+# ns_ListServices -- return a list of services matching pattern
+#
+proc ns_ListServices {pattern} {
+	global services
+
+	set result {}
+	foreach srvc $services {
+		if {[string match $pattern $srvc] == 1} {
+			lappend result $srvc
+		}
+	}
+	return $result
+}
+
+
+#
+# ns_LaunchServices -- launch services matching pattern
+# Ignore the command if the service is in the "running" or 
+# "launching" state
+#
+proc ns_LaunchServices {pattern} {
+	global srvcState
+
+	set srvcNames [ns_ListServices $pattern]
+
+	foreach srvc $srvcNames {
+		set srvc [AliasOf $srvc]
+		set state [set srvcState($srvc)]
+		if {$state != "running" && $state != "launching"} {
+			LaunchService $srvc
+		}
+	}
+	return
+}
+
+
+#
+# ns_ServiceState -- return the current state of services matching
+# pattern. The possible states are: onDemand, launching or dead.
+# If flag is set to "dead", the service will be reset.
+#
+proc ns_ServiceState {pattern {flag {}}} {
+	global srvcState srvcOriginalState
+	global srvcPort srvcConn
+
+	set srvcNames [ns_ListServices $pattern]
+	
+	set result {}
+	foreach srvc $srvcNames {
+			set temp $srvc
+			set srvc [AliasOf $srvc]
+			if {$flag == "dead"} {
+				set state [set srvcOriginalState($srvc)]
+				if {$state == "unregistered"} {
+					DeleteService $srvc
+				} else {				
+					set srvcState($srvc) $state
+					set srvcPort($srvc) ""
+					set srvcConn($srvc) 0
+				}
+				SaveState
+			} else {
+				set state [set srvcState($srvc)]
+			}
+			lappend temp $state
+			lappend result $temp
+	}
+	return $result
+}
+
+
+#
+# ns_KillServices -- kill the services matching pattern. The services
+#                    are killed using their pids.
+#
+proc ns_KillServices {pattern} {
+	global srvcPID srvcHost srvcTicket
+	
+	set srvcNames [ns_ListServices $pattern]
+	foreach srvc $srvcNames {
+		set alias [AliasOf $srvc]
+		set pid [set srvcPID($alias)]
+		set host [set srvcHost($alias)]
+
+		if {$pid != -1} {
+			puts "killing $srvc:$pid"
+			catch {exec rsh $host kill -9 $pid}
+			if {[catch {set srvcTicket($alias)} tickets]} {
+				set ticket {}
+			} else {
+				set ticket [lindex $tickets 1]			
+			}
+			puts $ticket
+			ns_UnadvertiseService $srvc $ticket
+		}
+	}
+}
+
+
+#
+# ns_IncrConnection -- increment the number of connections to a service
+#
+proc ns_IncrConnection {pattern} {
+	global srvcConn
+
+	set srvcNames [ns_ListServices $pattern]
+	foreach srvc $srvcNames {
+		set alias [AliasOf $srvc]
+		incr srvcConn($alias)
+	}
+	SaveState
+}
+
+#
+# ns_DecrConnection -- decrement the number of connections to a service
+#
+proc ns_DecrConnection {pattern} {
+	global srvcConn
+
+	set srvcNames [ns_ListServices $pattern]
+	foreach srvc $srvcNames {
+		set alias [AliasOf $srvc]
+		if {$srvcConn($alias) > 0} {
+			incr srvcConn($alias) -1
+		}
+	}
+	SaveState
+}
+
+###################################################################
+# Server Interface routines
+#
+###################################################################
+
+#
+# ns_AdvertiseService -- called by the service to advertise
+# its port number to the nameserver. Ticket should be the
+# one issued by the nameserver when it launched the service.
+# If null, the service will be treated as unregistered.
+#
+proc ns_AdvertiseService {srvcName host port pid {ticket {}}} {
+	global services
+	global srvcPort srvcHost
+	global srvcState srvcOriginalState
+	global srvcTicket srvcPID
+
+	puts "$srvcName is advertising:$ticket"
+
+	if {[VerifyService $srvcName]} {
+		set srvc [AliasOf $srvcName]
+		# Authenticate the service
+		if {$ticket == [lindex [set srvcTicket($srvc)] 1]} {
+			set srvcPort($srvc) $port
+			puts "pid = $pid"
+			set srvcPID($srvc) $pid
+			set srvcState($srvc) "running"
+		} else {
+			puts "Invalid ticket $ticket"
+			error "Invalid ticket $ticket"
+		}
+	} else {
+		# This is an unregister service
+		if {$srvcName == ""} {
+			error "Invalid service name"
+		}
+		lappend services $srvcName
+		set srvcOriginalState($srvcName) "unregistered"
+		set srvcState($srvcName) "running"
+		set srvcPort($srvcName) $port
+		set srvcHost($srvcName) $host
+		set srvcPID($srvcName) $pid
+		set srvcConn($srvcName) 0
+	}
+	SaveState
+	return 
+}
+
+#
+# ns_UnadvertiseService -- the inverse of ns_AdvertiseService
+# Unregistered service will be deleted. Registered service
+# will have its port number reset
+#
+proc ns_UnadvertiseService {srvcName {ticket {}}} {
+	global srvcOriginalState
+	global srvcPort srvcState
+	global srvcTicket srvcPID
+	global srvcConn
+
+	# Ignore services that don't exist
+	if {[VerifyService $srvcName]} {
+		set srvc [AliasOf $srvcName]
+		set state [set srvcOriginalState($srvc)] 
+		if {$state == "unregistered"} {
+			# This is an unregistered service, so delete it
+			DeleteService $srvcName
+		} else {
+			# Check its ticket for authenticity
+			if {$ticket == [lindex [set srvcTicket($srvc)] 1]} {		
+				set srvcPort($srvc) ""
+				set srvcPID($srvc) -1
+				set srvcConn($srvc) 0
+				set srvcState($srvc) $state
+				unset srvcTicket($srvc)
+			} else {
+				puts "Unauthorized service"
+			}
+		}
+	}
+	SaveState
+	return
+}
+
+
+#################################################################*
+# GUI Interface routines
+#
+###################################################################
+
+#
+# ns_Register -- used to add, delete, modify, alias and info services
+#
+proc ns_Register {action args} {
+	global services
+	global aliases aliasOf
+	global srvcHost srvcPort srvcCommand
+	global srvcState srvcOriginalState
+	global srvcPID srvcConn
+
+	set srvcName [lindex $args 0]
+	switch $action {
+		addService { 
+			if {[VerifyService $srvcName] == 0} {
+				lappend services $srvcName
+				set aliases($srvcName) {}
+				set srvcHost($srvcName) [lindex $args 1]
+				set srvcPort($srvcName) ""
+				set srvcCommand($srvcName) [lindex $args 2]
+				set srvcOriginalState($srvcName) "onDemand"
+				set srvcState($srvcName) "onDemand"
+				set srvcPID($srvcName) -1
+				set srvcConn($srvcName) 0
+				SaveState
+			} else {
+				error "$srvcName already exists"
+			}
+		}
+		deleteService {
+			if {[VerifyService $srvcName] != 0} {
+				set srvc [AliasOf $srvcName]
+				if { [set srvcState($srvc)] == "running" &&
+			         [set srvcOriginalState($srvc)] == "onDemand" } {
+					error "$srvcName is currently running"
+				} else {
+					DeleteService $srvcName
+				}
+			} else {
+				error "$srvcName does not exist"
+			}
+			SaveState
+		}
+		modifyService {
+			if {[VerifyService $srvcName] != 0} {
+				set srvc [AliasOf $srvcName]
+				if { [set srvcState($srvc)] == "onDemand"} {
+					set srvcHost($srvc) [lindex $args 1]
+					puts "$args"
+					set srvcCommand($srvcName) [lindex $args 2]
+				} else {
+					error "$srvcName is  currently running"
+				}
+			} else {
+				error "$srvcName does not exist"
+			}
+			SaveState
+		}
+		info {
+			if {[VerifyService $srvcName] !=0} {
+				set result {}
+				lappend result $srvcName
+				set alias [AliasOf $srvcName]
+				if {$alias != $srvcName} {
+					lappend result $alias
+				} else {
+					lappend result ""
+				}
+				lappend result [set srvcHost($alias)]
+				lappend result [set srvcCommand($alias)]
+                return $result
+            } else {
+                error "$srvcName does not exist"
+            }
+        }
+        aliasService {
+            if {[VerifyService $srvcName] !=0} {
+                set alias [lindex $args 1]
+                if {[VerifyService $alias] == 0} {
+                    set srvc [AliasOf $srvcName]
+                    set aliasOf($alias) $srvc
+                    set aliases($srvc) [concat [set aliases($srvc)] $alias]
+                    lappend services $alias
+					SaveState
+                } else {
+                    error "$alias already exists"
+                }
+            } else {
+                error "$srvcName does not exist"
+            }
+        }
+    }
+	return
+}
+
+
+
+#################################################################*
+# Utility routines
+#
+###################################################################
+
+#
+# AliasOf -- find out what service the name is aliasing. Return the name
+# itself if it is not an alias
+proc AliasOf {srvcName} {
+	global aliasOf
+
+	set temp ""
+	set alias $srvcName
+	while {1} {
+		if {[catch {set aliasOf($alias)} temp]} {
+			return $alias
+		} else {
+			set alias $temp
+		}
+	}
+}
+
+
+#
+# VerifyService -- verify the existence of the service
+#
+proc VerifyService {srvcName} {
+	global services
+
+	if {[lsearch -exact $services $srvcName] != -1} {
+		return 1
+	} else {
+		return 0
+	}
+}
+
+
+#
+# LaunchService -- launch a service either through inetd or rsh.
+# A pair of tickets used for authentication is generated and
+# kept by the nameserver and the service
+#
+proc LaunchService {srvcName} {
+    global srvcCommand
+    global srvcHost srvcState
+    global launchPort
+    global srvcTicket
+    global env
+
+    set host [set srvcHost($srvcName)]
+    set command [set srvcCommand($srvcName)]
+    set ticket [GenTicket]
+    puts "Ticket: $ticket"
+    set srvcTicket($srvcName) $ticket
+    if {[catch {lindex [dp_connect $host $launchPort] 0} sockID]} {
+	# inetd failed, use rsh instead
+	if [catch "exec rsh -n $host \"echo $ticket | $command -service $srvcName\" &" result] {
+	    nslog $result
+	    return
+	} 
+    } else {
+	set cList [split $command /]
+	set command [lindex $cList [expr [llength $cList]-1]]
+	puts "$command -service $srvcName"		
+	puts $sockID [list "$ns_adm" "$command -service $srvcName"]
+	set result [gets $sockID]
+	if {$result == -1} {
+	    puts [gets $sockID]
+	} else {
+	    puts $result
+	}
+	puts $sockID $ticket
+	close $sockID
+    }
+    set srvcState($srvcName) "launching"
+    dp_after 40000 "CheckService $srvcName"
+}
+
+#
+# DeleteService -- delete a service. 
+# If the service is not an alias, everything
+# gets cleaned up, otherwise only the alias is removed
+#
+proc DeleteService {srvcName} {
+	global services
+	global aliases aliasOf
+	global srvcPort srvcHost
+	global srvcCommand srvcState srvcOriginalState
+	global srvcTicket global srvcPID
+
+	set services [ListRemove $services $srvcName]
+	set alias [AliasOf $srvcName]
+	if {$alias == $srvcName} {
+		# This service is not an alias
+		catch {unset srvcPort($srvcName)}
+		catch {unset srvcHost($srvcName)}
+		catch {unset srvcCommand($srvcName)}
+		catch {unset srvcState($srvcName)}
+		catch {unset srvcOriginalState($srvcName)}
+		catch {unset srvcTicket($srvcName)}
+		catch {unset srvcPID($srvcName)}
+		if {[catch {set aliases($srvcName)} alist] == 0} {
+			foreach a $alist {
+				set services [ListRemove $services $a]
+				unset aliasOf($a)
+			}
+			unset aliases($srvcName)
+		} 
+	} else {
+		unset aliasOf($srvcName)
+		set aliases($alias) [ListRemove [set aliases($alias)] $srvcName]
+	}
+}
+
+#
+# CheckService -- check if a service starts up successfully, if not flag
+#                 it as dead
+proc CheckService {srvcName} {
+	global srvcState
+
+	set srvc [AliasOf $srvcName]
+	if {$srvcState($srvc) == "launching"} {
+		ns_ServiceState  $srvc dead
+	}
+}
+
+#
+#
+# ListRemove -- remove an element from the list
+#
+proc ListRemove {list element} {
+	set result {}
+	foreach x $list {
+		if {$x != $element} {
+			lappend result $x
+		}
+	}
+	return $result
+}
+	
+
+#
+# GenTicket -- return a pair of internally generated number
+#
+proc GenTicket {} {
+
+	return [list [systime] [systime]]
+}
+
+
+#
+# SaveState -- save the current state 
+#
+proc SaveState {} {
+	global nsState
+	global saveState
+	global services {}
+	global aliases aliasOf 
+	global srvcOriginalState srvcPID srvcConn
+	global srvcState srvcPort srvcHost 
+	global srvcCommand srvcTicket 
+	global nsStateFile
+	
+	set nsState {}
+
+	# list of services
+	lappend nsState "set services \{$services\}"
+
+	# aliases
+	if {[catch {array names aliases} srvcList] == 0} {
+		foreach srvc $srvcList {
+			set a [set aliases($srvc)]
+			lappend nsState "set aliases($srvc) \{$a\}"
+		}
+	}
+
+	# aliasOf
+	if {[catch {array names aliasOf} srvcList] == 0} {
+		foreach srvc $srvcList {
+			set a [set aliasOf($srvc)]
+			lappend nsState "set aliasOf($srvc) \{$a\}"
+		}
+	}
+
+	# srvcOriginalState srvcState srvcPort srvcHost srvcPID srvcConn
+	if {[catch {array names srvcOriginalState} srvcList] == 0} {
+		foreach srvc $srvcList {
+			set a [set srvcOriginalState($srvc)]
+			lappend nsState "set srvcOriginalState($srvc) \{$a\}"
+			set a [set srvcState($srvc)]
+			lappend nsState "set srvcState($srvc) \{$a\}"
+			set a [set srvcPort($srvc)]
+			lappend nsState "set srvcPort($srvc) \{$a\}"
+			set a [set srvcHost($srvc)]
+			lappend nsState "set srvcHost($srvc) \{$a\}"
+			set a [set srvcPID($srvc)]
+			lappend nsState "set srvcPID($srvc) \{$a\}"			
+			set a [set srvcConn($srvc)]
+			lappend nsState "set srvcConn($srvc) \{$a\}"			
+		}
+	}
+
+	if {[catch {array names srvcCommand} srvcList] == 0} {
+		foreach srvc $srvcList {
+			set a [set srvcCommand($srvc)]
+			lappend nsState "set srvcCommand($srvc) \{$a\}"
+		}
+	}
+
+	if {[catch {array names srvcTicket} srvcList] == 0} {
+		foreach srvc $srvcList {
+			set a [set srvcTicket($srvc)]
+			lappend nsState "set srvcTicket($srvc) \{$a\}"
+		}
+	}
+
+	set saveState 1
+	UpdateBackupServers
+
+	if {[catch {open $nsStateFile w} fd]} {
+		puts "Can't save state file"
+		exit 1
+	} else {
+		puts $fd "$nsState"
+		close $fd
+	}
+}
+	
+
+
+######################################################################
+# Internal startup and recover routines
+#
+
+# 
+# StartBackupServers -- start the backup server
+#
+proc StartBackupServers {} {
+	global nameServers
+	global primarySID
+	global serverHost	
+
+	foreach ns $nameServers {
+		set host [GetHost $ns]
+		set command [GetCommand $ns]
+		if {$host != $serverHost} {
+			nslog "Starting backup server remotely at $host"
+			if {[catch {exec rsh $host -n $command backup $primarySID &} msg]} {
+				nslog $msg
+			}
+		}
+	}
+}
+
+#
+# StartNewPrimaryServer -- designate the server whose id is 
+# primarySID+1 to be the new primary server
+#
+proc StartNewPrimaryServer {} {
+	global nameServers
+	global serverID
+	global primarySID
+	global isPrimary
+	global oldPSID
+
+	set oldPSID $primarySID
+	set count [llength $nameServers]
+	set primarySID [expr ($primarySID+1) % $count]
+	nslog "Starting new primary server"
+	nslog "newPSID $primarySID"
+
+	if {$primarySID == $serverID} { 
+		set isPrimary 1
+		dp_after 60000 NSMonitor
+		nslog "I am the new primary"
+		return ""
+	} else {
+		return [ConnToPrimaryServer]
+	}
+}
+
+
+#
+# ns_AdvertiseBackup -- grab backup server's handle
+#
+proc ns_AdvertiseBackup {id} {
+	global backupHandle
+	global rpcFile
+	
+	set backupHandle($id) $rpcFile
+}
+
+
+#
+# ConnToPrimaryServer -- connect to the primary server
+#
+proc ConnToPrimaryServer {} {
+	global nameServers
+	global primarySID serverID
+
+	set phost [GetHost [lindex $nameServers $primarySID]]
+	set pport [GetPort [lindex $nameServers $primarySID]]
+
+	if {[catch {dp_MakeRPCClient $phost $pport} handle]} {
+		nslog "New Primary server is down"
+		return [StartNewPrimaryServer]
+	}
+	nslog "Connected to the primary server at $phost $handle"
+	dp_socketOption $handle keepAlive yes
+	nslog [dp_atclose $handle append CrashHandler]
+	dp_RPC $handle ns_AdvertiseBackup $serverID 
+	return $handle
+}
+
+	
+#
+# RecoverServers -- recover the server that just died
+#	
+proc RecoverServers {ids} {
+	global nameServers
+	global primarySID
+	global saveState
+
+	foreach id $ids {
+		set host [GetHost [lindex $nameServers $id]]
+		set command [GetCommand [lindex $nameServers $id]]
+	
+		nslog "Recovering server remotely at $host"
+		if {[catch {exec rsh $host -n $command backup $primarySID} msg]} {
+			nslog $msg
+		}
+	}
+	# Keep everyone up-to-date
+	if {$ids != {}} {
+		set saveState 1
+		UpdateBackupServers
+	}
+}
+
+
+#
+# NSMonitor -- monitor the backups
+#
+proc NSMonitor {} {
+	global nameServers
+	global serverID 
+	global backupHandle 
+
+	nslog "Monitoring backup servers"
+	set deadServers {}
+	for {set i 0} {$i < [llength $nameServers]} {incr i} {
+		if {$i != $serverID} {
+			if {[catch {set backupHandle($i)} handle] == 0} {
+				if {[catch {dp_RPC $handle ns_AreYouAlive}] == 0} {
+					continue
+				}
+			} else {
+				nslog "server $i is down"
+				lappend deadServers $i
+			}
+		}			
+	}
+	RecoverServers $deadServers
+	dp_after 60000 NSMonitor
+}
+
+	
+#
+# CrashHandler -- callback rountine invoked in the backups
+#  when the primary server dies
+#
+proc CrashHandler {} {
+	global primaryHandler
+
+	nslog "Primary server went down"
+	set primaryHandler [StartNewPrimaryServer]
+	dp_socketOption $primaryHandle keepAlive yes
+	dp_atclose $primaryHandle append CrashHandler	
+}
+
+
+#
+# ns_UpdateState -- called by the primary to update the backup
+#
+proc ns_UpdateState {stateList} {
+	global nsStateFile
+	global nsState
+
+	set nsState $stateList
+
+	if {[catch {open $nsStateFile w} fd]} {
+		 nslog "Can't open the state file"
+		exit 1
+	} else {
+		nslog "Saving state file"
+		puts $fd "$stateList"
+		close $fd
+	}
+	foreach state $stateList {
+#		nslog "eval: $state"
+		uplevel $state
+	}
+}
+
+#
+# UpdateBackupServers -- update the backup servers
+#
+proc UpdateBackupServers {} {
+	global backupHandle
+	global saveState nsState
+
+	if {$saveState == 1} {
+		nslog "updating backup servers"
+		if {[catch {array names backupHandle} ids] == 0} {
+			foreach id $ids {
+				set handle [set backupHandle($id)]
+				dp_RDO $handle ns_UpdateState $nsState
+			}
+		}
+		set saveState 0
+	}
+}
+		
+#
+# GetHost -- get the nameserver's host name from ns
+#
+proc GetHost {ns} {
+	return [lindex $ns 0]
+}
+
+#
+# GetPort -- get the nameserver's port number from ns
+#
+proc GetPort {ns} {
+	return [lindex $ns 2]
+}
+
+#
+# GetCommand -- get the nameserver's startup command 
+#
+proc GetCommand {ns} {
+	return [lindex $ns 1]
+}
+
+
+#
+# nslog -- log nameserver messages
+#
+proc nslog {msg} {
+	global errfile
+
+	puts $errfile $msg
+	flush $errfile
+}
+
+
+#################################################################
+# Initialize the nameserver
+#
+
+
+
+# list of services
+set services {}
+
+# array of aliases
+#set aliases ""
+#set aliasOf ""
+
+# array of service state, port, host, command string indexed by service name
+#set srvcOriginalState ""
+#set srvcState ""
+#set srvcPort ""
+#set srvcHost ""
+#set srvcCommand ""
+#set srvcTicket ""
+#set srvcPID ""
+#set srvcConn""
+
+# determine server host, id and port #
+set serverHost [exec hostname]
+set serverID [lsearch -glob $nameServers "$serverHost* * * * *"]
+set serverCap [lindex $nameServers $serverID]
+set serverPort [lindex $serverCap 2]
+set nsStateFile [lindex $serverCap 3]
+set nsLogFile [lindex $serverCap 4]
+set primaryHandle ""
+set nsState {}
+set saveState 1
+
+# if the server is invoked as a daemon, then daemonize it
+puts "Starting nameserver"
+catch {rm -f $nsLogFile}
+if {$isDaemon == 1} {
+	puts "Daemonizing"
+    catch {rm -f $nsLogFile}
+    set err [catch {daemonize} error]
+    if [catch {set errfile [open $nsLogFile w]}] {
+		set errfile [open "/dev/null" w]
+    }
+	
+    # Make all standard out and standard error go to the error file
+    dup $errfile stderr
+    dup $errfile stdout
+	puts  "Daemon started"
+} else {
+    set errfile stderr
+}
+
+# Make all standard out and standard error go to the error file
+
+nslog "ServerID = $serverID Server port = $serverPort"
+
+if {[catch {dp_MakeRPCServer $serverPort dp_CheckHost ns_CmdCheck} msg]} {
+	nslog $msg
+	exit 1
+}
+
+set isPrimary 0
+set backup 0
+foreach arg $argv {
+	if {$arg == "-primary"} {
+		set isPrimary 1
+	} 
+
+	if {$arg == "-backup"} {
+		set backup 1
+	}
+}
+
+# determine whether this server is the primary or backup
+if {$isPrimary == 1} {
+	nslog "This is the primary server"
+	set primarySID $serverID
+	set primaryHandle ""
+	if {$backup == 1} {
+		StartBackupServers
+		dp_after 60000 NSMonitor
+#		dp_whenidle UpdateBackupServers
+        dp_after 10000 UpdateBackupServers
+	}
+} else {
+	nslog "This is the backup server"
+	set isPrimary 0
+	set primarySID [lindex $argv 1]
+	nslog "primarySID $primarySID"
+	set primaryHandle [ConnToPrimaryServer]
+}
+
+# Recover from the state file or configuration file
+if {[catch {open $nsStateFile} fd]} {
+	# State file does exist, read from the config file
+	if {[file exists $nsConfigFile]} {
+		source $nsConfigFile
+	} else {
+		nslog "Config file doesn't exist"
+	}
+} else {
+	set nsState [read $fd]
+	foreach state $nsState {
+		eval $state
+	}
+}
+
+
+
+proc CMTP_Translate {url args} {
+	set l  [Net_SplitURL $url]
+	puts "URL: $l"
+	set protocol [lindex $l 0]
+	set machine [lindex $l 1]
+	set port [lindex $l 2]
+	set file [lindex $l 3]
+
+	switch $protocol {
+		cmtp: { 
+			return [eval [list CMTP_translate $machine $port $file $args]]
+		} 
+		vodp: {
+			return [eval [list VODP_translate $machine $port $file $args]]
+		}
+		default {
+			error "Unhandled protocol in URL:$url"
+		}
+	}
+}
+
+set counter 0
+set timerID 0
+set expired 0
+
+proc SetOffTimer {id} {
+	global timerID expired
+
+	if {$id == $timerID} {
+		set expired 1
+	}
+}
+
+set kCMP_ROOT /n/vid2/CMP_ROOT		
+proc CMTP_translate {machine port file args} {
+	global counter timerID expired
+	global kCMP_ROOT 
+
+	set time 40000
+	set timeoutFlag 0
+	set retryFlag 0
+	foreach x $args {
+		puts $x
+		if {$x == "-timeout"} {
+			set timeoutFlag 1
+			continue
+		} elseif {$x == "-retry"} {
+			set retryFlag 1
+			continue
+		} elseif {$timeoutFlag == 1} {
+			set time [expr $x*1000]
+			set timeoutFlag 0
+			continue
+		}
+	}
+	puts "time = $time"		
+	set url "<CMTP $machine $port $file>"
+    if {$machine == {}} {
+		puts stderr "Badly spec'ed machine: $url"
+		error "Badly specified machine:port in URL: $url"
+    }
+	set machine gumby
+	if {[string index $file 0] != "~"} {
+		if {![regexp {^([^~:/\.]+)[\./]} $file x machine]} {
+			puts stderr "bad directory: $url , $file"
+			error "bad directory: $url"
+		}
+		set srvcList [ns_FindServices /cms/*]
+		if {![lsearch -exact {$srvcList} /cms/$machine]} {
+			set machine gumby
+		}
+		set file "$kCMP_ROOT/$file"
+	}
+    if {![file exists $file]} {
+		error "URL's file does not exist: $url"
+    }
+    set file [glob $file]
+
+	set srvcName /cms/$machine
+	if {$retryFlag == 1} {
+		ns_ServiceState $srvcName dead
+		set port ""
+	} else {
+		set srvc [lindex [ns_FindServices $srvcName] 0]
+		set hp [lindex $srvc 1]
+		set host [lindex $hp 0]
+		set port [lindex $hp 1]
+	}
+	if {$port == ""} {
+		set expired 0
+		dp_after $time "SetOffTimer $timerID"
+		ns_LaunchServices $srvcName
+		while {1} {
+			dp_update
+			if {$expired == 1} {
+				error "CMTP translation timedout"
+			}
+			set srvc [lindex [ns_FindServices $srvcName] 0]
+			set hp [lindex $srvc 1]
+			set host [lindex $hp 0]
+			set port [lindex $hp 1]
+			if {$port != ""} {
+				incr timerID
+				return "cmtp://$host:$port$file"
+			}
+		}			   
+	} else {
+		return "cmtp://$host:$port$file"
+	}
+}
+
+proc VODP_translate {machine port file args} {
+	global timerID expired
+
+	set time 40000
+	set timeoutFlag 0
+	set retryFlag 0
+	foreach x $args {
+		if {$x == "-timeout"} {
+			set timeoutFlag 1
+			continue
+		} elseif {$x == "-retry"} {
+			set retryFlag 1
+			continue
+		} elseif {$timeoutFlag == 1} {
+			set time [expr $x*1000]
+			set timeoutFlag 0
+			continue
+		}
+	}
+	puts "time = $time"
+	set srvcName /vods/vmgr
+	if {$retryFlag == 1} {
+		ns_ServiceState $srvcName dead
+		set port ""
+	} else {
+		set srvcList [ns_FindServices $srvcName]
+		set srvc [lindex $srvcList 0]
+		puts "Service: $srvc"
+		set hp [lindex $srvc 1]
+		set host [lindex $hp 0]
+		set port [lindex $hp 1]
+	}
+	if {$port == ""} {
+		set expired 0
+		dp_after $time "SetOffTimer $timerID"
+		ns_LaunchServices $srvcName
+		while {1} {
+			dp_update
+			if {$expired == 1} {
+				error "VODP translation timeout"
+			}
+			set srvc [lindex [ns_FindServices $srvcName] 0]
+			set hp [lindex $srvc 1]
+			set host [lindex $hp 0]
+			set port [lindex $hp 1]
+			if {$port != ""} {
+				incr timerID
+				return "vodp://$host:$port/$file"
+			}
+		}			   
+	} else {
+		return "vodp://$host:$port/$file"
+	}
+
+}
+
+#---------------------------------------------------------------
+# parses an URL into {protocol machine port file} with {} filling
+# unspecifed slots.
+# error: iff machine spec is not correct.
+
+
+proc Net_SplitURL {url} {
+    set mach {}
+    set port {}
+    set file {}
+    if {[regexp -nocase -- {^([a-z]+:)(.*)$} $url  zip proto rest]} {
+	# puts "protocol+ -- $proto $rest"
+	if {[regexp {^(//[^/]+/)(.*)$} $rest  zip mach rest]} {
+	    # puts "machine+ -- $mach $rest"
+	    if {![regexp {^//([^/:]+)(:([0-9]+))?/$} $mach  \
+		      zip mach zip port]} {
+		error "Bad machine spec in URL: $url"
+	    }
+	}
+	set file $rest
+	# puts "parse+ -- $mach $port"
+    } else {
+	set proto "file:"
+	set file $url
+    }
+    return [list $proto $mach $port $file]
+}
+
+
+

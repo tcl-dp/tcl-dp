@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content="Mike Perham">
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>Tcl-DP Command Documentation</title>
+</head>
+
+<body bgcolor="#C0C0C0" text="#000000" link="#0000EE"
+vlink="#551A8B" alink="#FF0000">
+
+<h2>Tcl-DP Documentation</h2>
+
+<hr>
+
+<h3>Tcl-DP Commands</h3>
+
+<ul>
+    <li><a href="dp_accept.html">dp_accept</a> - accept a TCP
+        client connection</li>
+    <li><a href="dp_admin.html">dp_admin</a> -
+        register/unregister a DP&nbsp;channel for RPC/RDOs</li>
+    <li><a href="dp_connect.html">dp_connect</a> - open a
+        Tcl-DP&nbsp;channel</li>
+    <li><a href="dp_copy.html">dp_copy</a> - perform a bulk copy
+        from one channel to another</li>
+    <li><a href="dp_netinfo.html">dp_netinfo</a> - allows access
+        to TCP, DNS&nbsp;and SMTP information</li>
+    <li><a href="dp_rdo.html">dp_RDO</a> - perform a remote
+        procedure call without return value</li>
+    <li><a href="dp_recv.html">dp_recv</a> - get data from a
+        channel</li>
+    <li><a href="dp_rpc.html">dp_RPC</a>&nbsp;- perform a remote
+        procedure call</li>
+    <li><a href="dp_send.html">dp_send</a> - send data through a
+        channel</li>
+</ul>
+
+<hr>
+
+<h3>Tcl-DP&nbsp;Library Functions</h3>
+
+<ul>
+    <li><b>RPC</b><ul>
+            <li><a href="makerpcserver.html">dp_MakeRPCServer</a>
+                - create TCP&nbsp;RPC&nbsp;server channel</li>
+            <li><a href="makerpcclient.html">dp_MakeRPCClient</a>
+                - create TCP&nbsp;RPC&nbsp;client channel</li>
+        </ul>
+    </li>
+    <li><strong>Distributed Objects</strong></li>
+    <li><a href="sample.html"><strong>Sample Applications</strong></a></li>
+</ul>
+
+<hr>
+
+<h3>Tcl-DP&nbsp;Channels</h3>
+
+<ul>
+    <li><a href="tcp.html">TCP</a></li>
+    <li><a href="udp.html">UDP</a></li>
+    <li><a href="ipm.html">IPM</a></li>
+    <li><a href="serial.html">Serial</a></li>
+    <li><a href="email.html">Email</a></li>
+    <li><a href="filter.html">Filters</a></li>
+</ul>
+
+<hr>
+
+<h3>Tcl-DP v3.x Obsolete Functions</h3>
+
+<ul>
+    <li>dp_address - obsolete, use dp_connect or fconfigure to
+        setup UDP/IPM destinations</li>
+    <li>dp_receive - use &quot;gets chanID&quot; and &quot;puts
+        chanID&quot;</li>
+    <li>dp_send - (not the same as the 4.0 command)</li>
+    <li>dp_packetReceive</li>
+    <li>dp_packetSend</li>
+    <li>dp_readbinary</li>
+    <li>dp_writebinary</li>
+    <li>dp_receiveFrom</li>
+    <li>dp_sendTo</li>
+    <li>dp_whenidle - use &quot;after idle ?script?&quot;</li>
+    <li>dp_hostname - use &quot;info hostname&quot;</li>
+    <li>dp_waitvariable - use &quot;vwait ?variable?&quot;</li>
+    <li>dp_update - use &quot;update ?idletasks?&quot;</li>
+    <li>dp_socketOption - use &quot;fconfigure chanID
+        ?option?&quot;</li>
+    <li>dp_shutdown - use &quot;close chanID&quot;</li>
+    <li>dp_isready - obsolete in event-driven I/O</li>
+    <li>dp_filehandler - use &quot;fileevent chanID ?type?
+        ?script?&quot;</li>
+    <li>dp_fupdate - obsolete, all channels should be opened with
+        dp_connect</li>
+    <li>dp_closesocket - use &quot;close chanID&quot;</li>
+    <li>dp_ProcessRPCCommand - obsolete in wish, use
+        &quot;update&quot; in tclsh</li>
+</ul>
+</body>
+</html>
+

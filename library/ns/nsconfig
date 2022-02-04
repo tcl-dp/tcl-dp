@@ -1,0 +1,8 @@
+#
+# Entries are of the form 
+#  ns_Register addService <service-name> <host> <cmd>
+#  ns_Register aliasService <service-name> <alias>
+#
+ns_Register addService /demo/server titan2 "dptcl -f /home/bsmith/work/tcl-dp/examples/ns/server"
+ns_Register aliasService /demo/server /demo/server-alias
+ns_Register addService /demo/genid titan2 "dptcl -f /home/bsmith/work/tcl-dp/examples/ns/genid"

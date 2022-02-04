@@ -1,0 +1,126 @@
+#----------------------------------------------------------------
+# You shouldn't have to modify this file -- Makefile is created from
+# Makefile.in from the config.status script, which is generated from
+# configure.  See the installation instructions in INSTALL.
+#----------------------------------------------------------------
+
+DP_LIBRARY =	@DP_LIBRARY@
+DP_LIBDIR =	@DP_LIBDIR@
+DP_BINDIR =	@DP_BINDIR@
+DP_INCLUDE =	@DP_INCLUDE@
+DP_MANDIR =	@DP_MANDIR@
+
+MAN1_DIR =	$(DP_MANDIR)/man1
+MAN3_DIR =	$(DP_MANDIR)/man3
+MANN_DIR =	$(DP_MANDIR)/mann
+
+NS_HOSTS =	@NS_HOSTS@
+NS_PORT =	@NS_PORT@
+NS_LAUNCHPORT =	@NS_LAUNCHPORT@
+
+TCL_INCLUDES =	@TCL_INCLUDES@
+TCL_LIBRARY =	@TCL_LIBRARY@
+TCL_LIBDIR =	@TCL_LIBDIR@
+TCL_LIB =	@TCL_LIB@
+TCLSH =		@TCLSH@
+
+PROTO_FLAGS =	@PROTO_FLAGS@
+HP_ANSI_FLAGS = @HP_ANSI_FLAGS@
+
+LIB_PATH =	@LIB_PATH@
+LIBS = ${LIB_PATH} libdplite.a $(TCL_LIBDIR) $(TCL_LIB) @LIBS@ -lm -lc
+
+CFLAGS =	@COPTS@
+SHELL =		/bin/sh
+
+AC_FLAGS =		@DEFS@
+INSTALL =		@INSTALL@
+INSTALL_PROGRAM =	@INSTALL_PROGRAM@
+INSTALL_DATA =		@INSTALL_DATA@
+RANLIB =		@RANLIB@
+VPATH =			@srcdir@
+
+CC =		@CC@
+EXTRA_INCLUDES = @INCLUDE_PATH@
+CC_SWITCHES =	${CFLAGS} ${EXTRA_INCLUDES} -I. -I/usr/include \
+		${TCL_INCLUDES} ${AC_FLAGS} -DNO_X11 \
+		${PROTO_FLAGS} ${MEM_DEBUG_FLAGS} \
+		-DTCL_LIBRARY=\"${TCL_LIBRARY}\" \
+		-DDP_LIBRARY=\"${DP_LIBRARY}\" ${HP_ANSI_FLAGS} 
+
+OBJS = dpnetInit.o dpnetwork.o dpaddress.o dprpc.o ns.o \
+	tkArgv.o tkBind.o tkCmds.o tkEvent.o tkPreserve.o
+
+all: dpsh
+
+libdplite.a: $(OBJS)
+	rm -f libdplite.a
+	ar cr libdplite.a $(OBJS)
+	$(RANLIB) libdplite.a
+
+dpsh: tkAppInit.o tkMain.o libdplite.a
+	$(CC) -o dpsh tkMain.o tkAppInit.o $(LIBS) 
+
+install: install-binaries install-libraries install-man
+
+install-binaries: libdplite.a dpsh
+	@for i in $(DP_LIBDIR) $(DP_BINDIR) ; \
+	    do \
+	    if [ ! -d $$i ] ; then \
+		echo "Making directory $$i"; \
+		mkdir $$i; \
+		chmod 755 $$i; \
+		else true; \
+		fi; \
+	    done;
+	@echo "Installing libdplite.a"
+	@$(INSTALL_DATA) libdplite.a $(DP_LIBDIR)/libdplite.a
+	@$(RANLIB) $(DP_LIBDIR)/libdplite.a
+	@echo "Installing dpsh"
+	@$(INSTALL_PROGRAM) dpsh $(DP_BINDIR)/dpsh
+
+install-libraries:
+	@for i in $(prefix)/lib $(DP_INCLUDE) $(DP_LIBRARY) ; \
+	    do \
+	    if [ ! -d $$i ] ; then \
+		echo "Making directory $$i"; \
+		mkdir $$i; \
+		chmod 755 $$i; \
+		else true; \
+		fi; \
+	    done;
+	@echo "Installing dp.h"
+	@$(INSTALL_DATA) dp.h $(DP_INCLUDE)
+	@cd library; for i in *.tcl tclIndex; \
+	    do \
+	    echo "Installing library/$$i"; \
+	    $(INSTALL_DATA) $$i $(DP_LIBRARY); \
+	    done;
+
+
+install-man:
+	@for i in $(DP_MANDIR) $(MAN1_DIR) $(MAN3_DIR) $(MANN_DIR) ; \
+	    do \
+	    if [ ! -d $$i ] ; then \
+		echo "Making directory $$i"; \
+		mkdir $$i; \
+		chmod 755 $$i; \
+		else true; \
+		fi; \
+	    done;
+	@(cd doc; tar cf - man[13n]) | (cd $(DP_MANDIR); tar xf -)
+
+clean:
+	rm -f *.[ao] core errs *~ \#* TAGS tags *.E a.out errors dpsh
+
+distclean: clean
+	rm -f Makefile config.log config.status config.cache
+
+test: dpsh
+	@cwd=`pwd`; \
+	DP_LIBRARY=`pwd`/../library; export DP_LIBRARY; \
+	cd $$cwd; cd tests; \
+	( echo source all\; exit ) | $$cwd/dpsh
+
+.c.o:
+	$(CC) -c $(CC_SWITCHES) $<

@@ -1,0 +1,27 @@
+proc Connect {serverHost} {
+    return [dp_MakeRPCClient $serverHost 1905]
+}
+
+proc GetFile {server remoteFilename localFilename} {
+    set outFile [open $localFilename w]
+    set cInfo [dp_connect -server 0]
+    set cSocket [lindex $cInfo 0]
+    set cPort [lindex $cInfo 1]
+    dp_RDO $server SendFile [dp_hostname] $cPort $remoteFilename
+    set dInfo [dp_accept $cSocket]
+    close $cSocket
+    set dSocket [lindex $dInfo 0]
+    while {1} {
+	if [catch {dp_receive $dSocket} data] {
+	    break;
+	}
+	puts -nonewline $outFile $data
+	puts -nonewline "#"
+	flush stdout
+    }
+    puts ""
+    close $outFile
+}
+
+set server [Connect titan]
+GetFile $server doc/dp_connect.n test.out

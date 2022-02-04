@@ -1,0 +1,39 @@
+/****************************************************************************
+
+
+tcl-dp40.rc
+
+produced by Borland Resource Workshop
+
+
+*****************************************************************************/
+
+#define VERSIONINFO_1	1
+
+VERSIONINFO_1 VERSIONINFO 
+FILEVERSION 4, 0, 1, 0
+PRODUCTVERSION 4, 0, 1, 0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+{
+ BLOCK "StringFileInfo"
+ {
+  BLOCK "040904E4"
+  {
+   VALUE "CompanyName", "Custom Clients\000\000"
+   VALUE "FileDescription", "Tcl-DP Loadable Extension for Tcl/Tk\000"
+   VALUE "FileVersion", "4.01\000\000"
+   VALUE "InternalName", "tcl-dp40.dll\000"
+   VALUE "LegalCopyright", "Copyright © I.B.Findleton, 2001\000\000"
+   VALUE "OriginalFilename", "tcl-dp40.dll\000"
+   VALUE "Comment", "Stubs based implementation of Tcl-DP 4.0"
+  }
+
+ }
+
+ BLOCK "VarFileInfo"
+ {
+  VALUE "Translation", 0x409, 1252
+ }
+
+}

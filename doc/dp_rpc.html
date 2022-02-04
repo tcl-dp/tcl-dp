@@ -1,0 +1,68 @@
+<<<<<<< (null)="======">
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content>
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>dp_RPC</title>
+</head>
+
+<body bgcolor="#C0C0C0" text="#000000" link="#0000EE"
+vlink="#551A8B" alink="#FF0000">
+
+<h3>dp_RPC</h3>
+
+<p><b>Syntax</b></p>
+
+<pre>dp_RPC&nbsp;<em>rpcChan</em> ?-timeout <em>amount</em> ?-timeoutReturn <em>script</em>?? ?-events <em>evtList</em>? <em>rpcCmd</em> ?args ...?</pre>
+
+<p><b>Comments</b></p>
+
+<p>dp_RPC allows one to send a Tcl expression to a remote Tcl
+interpreter to be evaluated by it. <em>rpcChan</em> is a channel
+opened with dp_connect and registered for RPCs with dp_admin.
+Unlike dp_RDO, this command waits for a return code, although
+because of the asynchronous nature of events and I/O, RPC return
+codes are not guaranteed in any specific order. If one does not
+need a return code, it is highly recommended that dp_RDO&nbsp;be
+used instead; it is much faster and far less complex.</p>
+
+<p>The timeout <em>amount</em> specifies how long
+dp_RPC&nbsp;will block before returning an error and is in
+milliseconds. <em>script</em> is the script to evaluate if the
+RPC&nbsp;times out. Specifying a timeout script without a timeout
+value is invalid. The prototype for the timeoutReturn script is
+as follows:</p>
+
+<pre>proc errorHandler {channelName} {}</pre>
+
+<p><em>evtList</em> is a normal Tcl event list that tells
+DP&nbsp;which events to respond to while waiting for the
+RPC&nbsp;to return. See the Tcl documentation on events for valid
+parameters.</p>
+
+<p>dp_RPC&nbsp;returns the return value of the <i>rpcCmd</i>.</p>
+
+<hr>
+
+<p>If you are using RPCs with just tclsh, an RPC will not execute
+asynchronously due to the fact that Tcl relies on
+Tcl_DoOneEvent() to process events. It is recommended that you
+use wish or add a vwait command in your script to force Tcl into
+an event loop. As an example, if you send an RPC to puts
+&quot;foobar&quot;, the receiving intrepreter will not print
+&quot;foobar&quot; until update is called.</p>
+
+<hr>
+
+<p><b>Examples</b></p>
+
+<pre>dp_RPC&nbsp;$myChan puts stdout hello
+dp_RPC $myChan -timeout 100 puts stdout foo
+dp_RPC&nbsp;$myChan -timeout 100 -timeoutReturn &quot;set a 1&quot; -events all puts stdout hello</pre>
+</body>
+</html>
+

@@ -1,0 +1,63 @@
+<html>
+<title>dp_atclose</title>
+<head>
+<h3>dp_atclose - Arrange for commands to be evaluated when a file  or
+socket is closed</h3>
+</head>
+<body>
+<HR>
+<pre>
+dp_atclose sockId option ?cmd?
+</pre>
+The dp_atclose command manages the dp_atclose  list,  a  list  of
+callback  routines that are evaluated just before sockId is actually
+closed.  This is useful for networking  applications,  where
+filehandlers  associated  with  a  socket  must be deleted when a
+socket is closed.  The argument option specifies the operation to
+be performed on the dp_atclose list.  The valid options are:
+<pre>
+dp_atclose sockId list
+</pre>
+Returns the current dp_atclose list associated with sockId.
+<pre>
+dp_atclose sockId set newList
+</pre>
+Sets the dp_atclose list associated with sockId to newList.
+<pre>
+dp_atclose sockId append callback
+</pre>
+Append callback to the end of the dp_atclose list associated with
+sockId.
+<pre>
+dp_atclose sockId appendUnique callback
+</pre>
+Appends callback to the end of  the  dp_atclose  list  associated
+with sockId if it's not already a member of the list.
+<pre>
+dp_atclose sockId prepend callback
+</pre>
+Inserts callback at the front of the dp_atclose  list  associated
+with sockId.
+<pre>
+dp_atclose sockId insert beforeCallback callback
+</pre>
+Inserts callback before beforeCallback in the dp_atclose list associated
+with sockId.  If beforeCallback is not in the dp_atclose
+list associated with sockId, no action is taken.
+<pre>
+dp_atclose sockId delete callback
+</pre>
+Delete callback from the dp_atclose list associated with  sockId.
+If callback is not in the dp_atclose list associated with sockId,
+no action is taken.
+<pre>
+dp_atclose sockId clear
+</pre>
+Clears the dp_atclose list associated with sockId.
+<P>
+<hr>
+Brian Smith (bsmith@cs.berkeley.edu) <BR>
+Steve Yen (syen@cs.berkeley.edu) <BR>
+Stephen Tu (tus@roger-rabbit.cs.berkeley.edu) <br>
+</body>
+</html>

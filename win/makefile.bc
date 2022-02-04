@@ -1,0 +1,267 @@
+# Makefile
+#
+# This makefile builds dp.dll, the dynamically linked library for Tcl-DP.
+# This makefile is suitable for use with Borland C++ 4.5, 5.0 and 5.5 
+#
+# Copyright (c) 1995-1996 Cornell University.
+# Copyright (c) 2001 I.B.Findleton
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# Copyright (c) 1996 Sun Microsystems, Inc.
+# SCCS: @(#) makefile.vc 1.3 96/04/24 13:28:08
+#
+
+#
+# Project directories -- these may need to be customized for your site
+#
+# ROOT --	  location of the example files.
+# GENERIC_DIR --  location for platform independent files.
+# WIN_DIR --	  location for Windows specific files.
+# OBJ_DIR -- 	  location for compiler's object files
+# QUIET --        if uncommented, there is virtually no output during compile
+#
+
+ROOT	   = ..
+GENERIC_DIR = $(ROOT)\generic
+WIN_DIR	   = .
+OBJ_DIR	   = .\objs
+#DEBUG_INFO = 1
+#QUIET	   = @
+
+#
+# The following definitions can be set in the DOS window to suit
+# your local configuration.
+#
+# TOOLS32	  	location of VC++ compiler installation.
+# TCL_GENERIC_DIR	location of the Tcl 8.0 "generic" directory.
+# DEBUG_INFO		if defined, will compile with debug info.
+#
+# E.g., if your installed VC++ in some other drives, do this in DOS
+# window ( or with the help of a batch file):
+#	
+#	set TOOLS32=d:\msdev
+#	nmake -f makefile
+#
+!IFNDEF TOOLS32
+TOOLS32	    = e:\Borland\BC55
+!ENDIF
+
+!IFNDEF TCL_ROOT_DIR
+TCL_ROOT_DIR	= d:\tcl\tcl8.2.0
+!ENDIF
+
+!IFNDEF TCL_GENERIC_DIR
+TCL_GENERIC_DIR	= $(TCL_ROOT_DIR)\generic
+!ENDIF
+
+!IFNDEF DEBUG_INFO
+NODEBUG=1
+!ENDIF
+
+#
+# Borland C++ tools
+#
+
+PATH=$(TOOLS32)\bin;$(PATH)
+
+Bcc32	= $(QUIET)$(TOOLS32)\bin\Bcc32.exe
+Implib = $(QUIET)$(TOOLS32)\bin\Implib.exe
+RC = $(QUIET)$(TOOLS32)\bin\Brc32.exe
+LINK = $(QUIET)$(TOOLS32)\bin\ilink.exe
+
+CP      = copy
+RM      = del
+
+RC_FLAGS        = -32
+
+!ifndef DEBUG
+
+# these macros cause maximum optimization and no symbols
+DEBUGLDFLAGS = 
+DEBUGCCFLAGS = -v- -vi- -O2
+
+!else
+
+# these macros enable debugging
+DEBUGLDFLAGS = -v
+DEBUGCCFLAGS = -k -Od -v
+
+!endif
+
+#The following modification is used to generate a Tix extension using the Tcl/Tk
+# stub library mechanism. I.B.Findleton, Sept, 1999
+
+!IF "$(STATIC)" == "1"
+	RTL =
+        RTLIB = $(BORLAND)\lib\cw32
+	!MESSAGE Building STATIC link version
+!ELSE
+	RTL = -D_RTLDLL
+        RTLIB = $(BORLAND)\lib\cw32i
+   !MESSAGE Building DYNAMIC link version
+!ENDIF
+
+INCLUDES = -I$(TOOLS32)\include -I$(TCL_GENERIC_DIR) -I$(ROOT)
+DEFINES = $(DEBUGCCFLAGS) -D_TCL80 -DUSE_TCL_STUBS $(RTL)
+
+# 
+# Global makefile settings
+#
+
+OBJS =	$(OBJ_DIR)\dpChan.obj \
+	$(OBJ_DIR)\dpCmds.obj \
+	$(OBJ_DIR)\dpInit.obj \
+	$(OBJ_DIR)\dpWinIPM.obj \
+	$(OBJ_DIR)\dpWinUdp.obj \
+	$(OBJ_DIR)\dpFilters.obj \
+	$(OBJ_DIR)\dpPlugF.obj \
+	$(OBJ_DIR)\dpSerial.obj \
+	$(OBJ_DIR)\dpSock.obj \
+	$(OBJ_DIR)\dpWinTcp.obj \
+	$(OBJ_DIR)\dpRPC.obj \
+	$(OBJ_DIR)\dpIdentity.obj \
+	$(OBJ_DIR)\dpPackOff.obj \
+	$(OBJ_DIR)\dpWinSock.obj \
+	$(OBJ_DIR)\dpWinSerial.obj \
+	$(OBJ_DIR)\dpWinInit.obj
+
+DPDLL = dp40.dll
+DPSH  = dpsh40
+
+PROJECTCCFLAGS= $(DEBUGCCFLAGS) -w-par -w-stu
+
+LNFLAGS_exe = -Tpe -aa -c $(DEBUGLDFLAGS) $(BORLAND)\lib\c0w32
+LNFLAGS_dll = -Tpd -aa -c $(DEBUGLDFLAGS) $(BORLAND)\lib\c0d32
+
+LNLIBS_exe=import32 $(RTLIB)
+LNLIBS_dll=import32 $(RTLIB)
+
+#
+# Global makefile settings
+#
+
+.AUTODEPEND
+.CACHEAUTODEPEND
+
+.suffixes: .c .dll .lib .obj .exe .rc .res
+
+.path.c=$(ROOT)\win;$(ROOT)\generic;$(ROOT)\xlib
+.path.obj=$(TMPDIR)
+
+#
+# Targets
+#
+
+all: $(DPDLL)
+
+# Implicit Targets
+
+.c.obj:
+	@$(BCC32) {$< }
+
+.dll.lib:
+	$(IMPLIB) -c $@ $<
+
+.rc.res:
+        $(RC) -r -i$(RC_INCLUDES) $(RC_FLAGS) $<
+
+# Targets
+
+$(DPDLL): $(OBJ_DIR) $(OBJS)
+	@set LIB=$(TOOLS32)\lib
+	$(QUIET)$(link) $(linkdebug) $(dlllflags) $(TCL_ROOT_DIR)\win\tcl80.lib \
+		Wsock32.lib $(guilibsdll) -out:$(DPDLL) $(OBJS)
+
+$(OBJ_DIR):
+	-@if not exist .\objs\nul mkdir .\objs
+
+$(DPSH): $(OBJS) $(OBJ_DIR)\dpAppInit.obj
+	@set LIB=$(TOOLS32)\lib
+	$(QUIET)$(link) $(linkdebug) $(conlflags) \
+		-out:$(DPSH).exe $(conlibsdll) $(OBJ_DIR)\dpAppInit.obj \
+		 dp40.lib $(TCL_ROOT_DIR)\win\tcl80.lib
+
+$(OBJ_DIR)\dpAppInit.obj: $(WIN_DIR)\dpAppInit.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpAppInit.obj $(WIN_DIR)\dpAppInit.c
+
+$(OBJ_DIR)\dpChan.obj: $(GENERIC_DIR)\dpChan.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpChan.obj $(GENERIC_DIR)\dpChan.c
+
+$(OBJ_DIR)\dpCmds.obj: $(GENERIC_DIR)\dpCmds.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpCmds.obj $(GENERIC_DIR)\dpCmds.c
+
+$(OBJ_DIR)\dpFilters.obj: $(GENERIC_DIR)\dpFilters.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpFilters.obj $(GENERIC_DIR)\dpFilters.c
+
+$(OBJ_DIR)\dpPlugF.obj: $(GENERIC_DIR)\dpPlugF.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpPlugF.obj $(GENERIC_DIR)\dpPlugF.c
+
+$(OBJ_DIR)\dpWinIPM.obj: $(WIN_DIR)\dpWinIPM.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpWinIPM.obj $(WIN_DIR)\dpWinIPM.c
+
+$(OBJ_DIR)\dpInit.obj: $(GENERIC_DIR)\dpInit.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpInit.obj $(GENERIC_DIR)\dpInit.c
+
+$(OBJ_DIR)\dpWinTcp.obj: $(WIN_DIR)\dpWinTcp.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpWinTcp.obj $(WIN_DIR)\dpWinTcp.c
+
+$(OBJ_DIR)\dpRPC.obj: $(GENERIC_DIR)\dpRPC.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpRPC.obj $(GENERIC_DIR)\dpRPC.c
+
+$(OBJ_DIR)\dpWinUDP.obj: $(WIN_DIR)\dpWinUDP.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpWinUDP.obj $(WIN_DIR)\dpWinUDP.c
+
+$(OBJ_DIR)\dpIdentity.obj: $(GENERIC_DIR)\dpIdentity.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpIdentity.obj $(GENERIC_DIR)\dpIdentity.c
+
+$(OBJ_DIR)\dpPackOff.obj: $(GENERIC_DIR)\dpPackOff.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpPackOff.obj $(GENERIC_DIR)\dpPackOff.c
+
+$(OBJ_DIR)\dpWinInit.obj: $(WIN_DIR)\dpInit.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpWinInit.obj $(WIN_DIR)\dpInit.c
+
+$(OBJ_DIR)\dpSock.obj: $(GENERIC_DIR)\dpSock.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpSock.obj $(GENERIC_DIR)\dpSock.c
+
+$(OBJ_DIR)\dpWinSock.obj: $(WIN_DIR)\dpSock.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpWinSock.obj $(WIN_DIR)\dpSock.c
+
+$(OBJ_DIR)\dpWinSerial.obj: $(WIN_DIR)\dpSerial.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpWinSerial.obj $(WIN_DIR)\dpSerial.c
+
+$(OBJ_DIR)\dpSerial.obj: $(GENERIC_DIR)\dpSerial.c
+	$(cc32) $(cdebug) -c $(cvarsdll) $(INCLUDES) \
+		$(DEFINES) /Fo$(OBJ_DIR)\dpSerial.obj $(GENERIC_DIR)\dpSerial.c
+
+clean:
+	-@if exist $(OBJ_DIR)\*.obj $(RM) $(OBJ_DIR)\*.obj
+	-@if exist $(DPDLL) $(RM) $(DPDLL)
+	-@if exist dp40.lib $(RM) dp40.lib
+	-@if exist dp40.exp $(RM) dp40.exp
+	-@if exist pkgIndex.tcl $(RM) pkgIndex.tcl
+	-@if exist $(DPSH).exe $(RM) $(DPSH).exe
+
+tests: $(DPDLL)
+	SET DP_TEST_VERBOSE=1
+	cd ..\tests 
+	$(TCL_ROOT_DIR)\win\tclsh80.exe all
+
+

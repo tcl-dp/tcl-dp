@@ -1,0 +1,56 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content>
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>dp_netinfo</title>
+</head>
+
+<body bgcolor="#C0C0C0" text="#000000" link="#0000EE"
+vlink="#551A8B" alink="#FF0000">
+
+<h3>dp_netinfo</h3>
+
+<dl>
+    <dt><b>Syntax</b></dt>
+    <dt>&nbsp;</dt>
+    <dt><tt>dp_netinfo </tt><em><tt>option</tt></em><tt> </tt><em><tt>args</tt></em></dt>
+    <dt>&nbsp;</dt>
+    <dt><b>Comments</b></dt>
+    <dt>&nbsp;</dt>
+    <dt><i>Option</i>&nbsp;can be one of the following:</dt>
+</dl>
+
+<ul>
+    <li>-service</li>
+    <li>-address</li>
+</ul>
+
+<p>The -service option takes one argument: a service name or port
+number.&nbsp; Enter a service name (i.e. &quot;http&quot; or
+&quot;telnet&quot;) and dp_netinfo will return the active server
+port for that service based on the system configuration.&nbsp; In
+UNIX, this information is usually stored in /etc/services.&nbsp;
+Likewise, you can give it a port number and it will return the
+name of the service on that port.</p>
+
+<p>The -address options allows one to translate from IP address
+to hostname and vice versa.&nbsp; It also takes one
+argument:&nbsp;an IP&nbsp;address (127.0.0.1) or a hostname
+(www.foobar.com) and returns the cooresponding value.</p>
+
+<p><b>Examples</b></p>
+
+<dl>
+    <dt><tt>dp_netinfo -service http</tt></dt>
+    <dt><tt>dp_netinfo -service 80</tt></dt>
+    <dt><tt>dp_netinfo -address www.foobar.com</tt></dt>
+    <dt><tt>dp_netinfo -address 127.0.0.1</tt></dt>
+    <dt>&nbsp;</dt>
+</dl>
+</body>
+</html>
+

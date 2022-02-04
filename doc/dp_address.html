@@ -1,0 +1,45 @@
+<html>
+<title>dp_address</title>
+<head>
+<h3>dp_address - Internet address record manipulation</h3>
+</head>
+<body>
+<HR>
+<pre>
+dp_address [<a href="#Create">Create</a> | <a href="#Delete">Delete</a> | <a href="#Info">Info</a>] ?arg arg ...?
+</pre>
+The dp_address command provides access to an  internal  array  of
+internet  address records.  These address records are appropriate
+for use as arguments to the  dp_sendTo  and  receiveFrom  network
+communication  commands  of Tcl-DP (Tcl Distributed Programming).
+The argument option specifies the operation to be performed.  The
+valid options are:
+<pre><a name="Create">
+dp_address create host port
+</a></pre>
+Creates an internal address record that represents the given host
+address  and  port  internet information.  Returns an addr handle
+that is appropriate for use as an argument to the  dp_sendTo  and
+dp_receiveFrom  commands and as the addr argument in the commands
+below.  Port can be specified by number or by service  name  (see
+services(5) for more information).  If specified by service name,
+it must be a UDP service.
+<pre><a name="Delete">
+dp_address delete addr
+</a></pre>
+Delete the previously created internal address  record  that  has
+the given addr handle.
+<pre><a name="Info">
+dp_address info addr
+</a></pre>
+Return a list of the form {host port {names}} associated with the
+given addr handle.  Host is the associated internet address, port
+is the associated port number, and names is a list of  associated
+hostnames.   The  primary  host name is given first.
+<P>
+<hr>
+Brian Smith (bsmith@cs.berkeley.edu) <BR>
+Steve Yen (syen@cs.berkeley.edu) <BR>
+Stephen Tu (tus@roger-rabbit.cs.berkeley.edu) <br>
+</body>
+</html>

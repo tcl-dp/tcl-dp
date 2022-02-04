@@ -1,0 +1,120 @@
+# TekiFile 1.0
+
+#
+
+# TEKI install file for Tcl-DP and the "example" extensions
+
+#
+
+lappend newPackage(available) dp4.0
+
+
+
+set newPackage(dp4.0,name)         dp
+
+set newPackage(dp4.0,version)      4.0
+
+set newPackage(dp4.0,description)  "Tcl-DP"
+
+set newPackage(dp4.0,requires)     {{Tcl 7.6}}
+
+set newPackage(dp4.0,tekiFile)     dp.tek
+
+set newPackage(dp4.0,updateURL)    {}
+
+set newPackage(dp4.0,registerURL)  {}
+
+set newPackage(dp4.0,srcURL)       http://www.cs.cornell.edu/Info/Projects/zeno/Projects/Tcl-DP.html
+
+set newPackage(dp4.0,srcDir)       .
+
+set newPackage(dp4.0,destDir)      dp4.0
+
+set newPackage(dp4.0,copyright)    LICENSE
+
+set newPackage(dp4.0,infoFile)     README
+
+set newPackage(dp4.0,tclFiles)     {
+
+    library/acl.tcl library/distribObj.tcl library/dp_atclose.tcl 
+
+    library/dp_atexit.tcl library/ldelete.tcl library/oo.tcl library/rpc.tcl
+
+}
+
+set newPackage(dp4.0,dataFiles)    {
+
+    api/dpApi.c api/dpApi.h api/dpExample.c api/readme.api
+
+}
+
+set newPackage(dp4.0,docDir)       doc
+
+set newPackage(dp4.0,docFiles)     {
+
+    dp_accept.html dp_admin.html dp_connect.html
+
+    dp_copy.html dp_netinfo.html dp_rdo.html dp_recv.html dp_rpc.html
+
+    dp_send.html email.html filter.html index.html ipm.html
+
+    makerpcclient.html makerpcserver.html sample.html serial.html
+
+    tcp.html udp.html
+
+}
+
+set newPackage(dp4.0,exampleFiles) {
+
+    examples/conference/enter.tcl examples/conference/README 
+
+    examples/conference/room.tcl examples/ftp/client.tcl 
+
+    examples/ftp/server.tcl examples/tictactoe/board.tcl 
+
+    examples/tictactoe/interface.tcl examples/tictactoe/playerO.tcl 
+
+    examples/tictactoe/playerX.tcl examples/tictactoe/README 
+
+    examples/whiteboard/readme examples/whiteboard/wbClient.tcl 
+
+    examples/whiteboard/wbServer.tcl
+
+}
+
+
+
+set newPackage(dp4.0,objFiles)  {
+
+        {Win95/NT win/dp40.dll}
+
+        {Solaris unix/libdp40.so}
+
+        {SunOS unix/libdp40.so}
+
+        {FreeBSD unix/libdp40.so}
+
+        {HP-UX9 unix/libdp40.sl}
+
+	{Digital unix/libdp40.so}
+
+}
+
+
+
+#
+
+# Defaults for "typical" install
+
+#
+
+set newPackage(defaultPackages)        dp4.0
+
+set newPackage(defaultArch)            Win95/NT
+
+set newPackage(defaultInstallDoc)      1
+
+set newPackage(defaultInstallExamples) 1
+
+set newPackage(defaultInstallData)     1
+

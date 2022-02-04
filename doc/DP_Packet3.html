@@ -1,0 +1,29 @@
+<html>
+<title>Tdp_PacketRecieve, Tdp_PacketSend</title> <head>
+<h3>Tdp_PacketReceive, Tdp_PacketSend - C level access to "dp_packetSend"
+and "dp_packetReceive" commands</h3>
+</head>
+<body>
+<pre>
+#include "network.h"
+
+int Tdp_PacketReceive (interp, fileHandle, peek)
+
+int Tdp_PacketSend (interp, fileHandle, message)
+Tcl_Interp   *interp         /* Current Tcl interpreter */
+char         *fileHandle     /* Socket to send or receive data from */ 
+int          peek            /* Destructive read? */
+char         *message        /* String to send */
+</pre>
+<hr>
+<P>
+The above two routines allow users C level access to the Tcl-DP
+dp_packetSend and dp_packetReceive Tcl/Tk commands.
+<P>
+<hr>
+<P>
+Brian Smith (bsmith@cs.berkeley.edu) <br>
+Steve Yen (syen@cs.berkeley.edu) <br>
+Stephen Tu (tus@roger-rabbit.cs.berkeley.edu) <br>
+</body>
+</html>

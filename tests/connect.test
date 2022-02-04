@@ -1,0 +1,36 @@
+# connect.test --
+#
+#	This file tests the dp_connect and dp_accept commands.
+#
+
+# CMake creates testconfig.tcl from testconfig.tcl.in, substituting CMake variables.
+source [file join tests testconfig.tcl]
+
+# Windows tests
+
+test connect-1.1 {dp_connect command} -constraints win -body {
+    list [catch {dp_connect} msg] $msg
+} -result {1 {wrong # args: should be "dp_connect channelType ?args ...?"
+Valid channel types are: packoff serial udp plugfilter identity tcp ipm }}
+
+test connect-1.2 {dp_connect command} -constraints win -body {
+    list [catch {dp_connect foobar} msg] $msg
+} -result {1 {Unknown channel type "foobar"
+Valid channel types are: packoff serial udp plugfilter identity tcp ipm }}
+
+
+# UNIX tests
+
+test connect-2.1 {dp_connect command} -constraints unix -body {
+    list [catch {dp_connect} msg] $msg
+} -result {1 {wrong # args: should be "dp_connect channelType ?args ...?"
+Valid channel types are: packoff serial udp plugfilter identity email tcp ipm }}
+
+test connect-2.2 {dp_connect command} -constraints unix -body {
+    list [catch {dp_connect foobar} msg] $msg
+} -result {1 {Unknown channel type "foobar"
+Valid channel types are: packoff serial udp plugfilter identity email tcp ipm }}
+
+::tcltest::cleanupTests
+return $::tcltest::numTests(Failed)
+

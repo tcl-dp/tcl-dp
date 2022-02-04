@@ -1,0 +1,48 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content>
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>dp_copy</title>
+</head>
+
+<body bgcolor="#C0C0C0" text="#000000" link="#0000EE"
+vlink="#551A8B" alink="#FF0000">
+
+<h3>dp_copy</h3>
+
+<p><b>Syntax</b>&nbsp;</p>
+
+<p><tt>dp_copy ?-size </tt><em><tt>amount</tt></em><tt>?&nbsp;</tt><em><tt>srcChanId</tt></em><tt>
+</tt><em><tt>destChanId</tt></em><tt> ?</tt><em><tt>destChanId2</tt></em><tt>
+...?</tt></p>
+
+<p><b>Comments</b></p>
+
+<p>dp_copy allows bulk copying of information from one channel to
+another.&nbsp; Notice that there can be more than one destination
+channel (allowing for N-way copying).&nbsp; The size of the copy
+can be specificied but it defaults to 4096 bytes.&nbsp; If the <em>amount</em>
+requested is larger than the amount available in the source
+channel, dp_copy may return less than the amount requested or
+block, depending on the configuration of the source channel.</p>
+
+<p>Note that dp_copy goes through the Tcl I/O layer, unlike <a
+href="dp_send.html">dp_send</a> and <a href="dp_recv.html">dp_recv</a>.</p>
+
+<dl>
+    <dt>dp_copy returns the number of bytes read from the source
+        channel.</dt>
+    <dt>&nbsp;</dt>
+    <dt><b>Examples</b></dt>
+    <dt>&nbsp;</dt>
+    <dt><tt>dp_copy -size 100 $src $dest</tt></dt>
+    <dt><tt>dp_copy $src $dest</tt></dt>
+    <dt>&nbsp;</dt>
+</dl>
+</body>
+</html>
+

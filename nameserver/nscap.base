@@ -1,0 +1,13 @@
+
+set fd [open nscap w]
+puts $fd "\# nameServers {{host command port statefile logfile} ....}"
+puts $fd "set nameServers \{"
+foreach h $hosts {
+    set x [list $binDir/nstcl -f $libDir/ns.tcl]
+    puts $fd "  \{[list $h $x $nsPort $libDir/nsstate $admDir/log.$h]\}"
+}
+puts $fd \}
+puts $fd "set nsConfigFile $libDir/nsconfig"
+puts $fd "set launchPort $launchPort"
+close $fd
+exit

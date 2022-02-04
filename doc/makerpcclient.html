@@ -1,0 +1,44 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content>
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>MakeRPCClient</title>
+</head>
+
+<body bgcolor="#C0C0C0" text="#000000" link="#0000EE"
+vlink="#551A8B" alink="#FF0000">
+
+<h3>dp_MakeRPCClient</h3>
+
+<p><b>Syntax</b></p>
+
+<p><tt>dp_MakeRPCClient </tt><em><tt>host</tt></em><tt>&nbsp;</tt><em><tt>port</tt></em><tt>&nbsp;?</tt><em><tt>checkCmd</tt></em><tt>?</tt></p>
+
+<p><b>Comments</b></p>
+
+<p>This is a Tcl wrapper procedure for creating a
+TCP&nbsp;RPC&nbsp;client. If you need a client of a different
+channel type, you can use this procedure as a template in order a
+procedure for your own channel type.</p>
+
+<ul>
+    <li><i>host</i> is the IP address or hostname of the server.</li>
+    <li><i>port</i> is the server port to connect.</li>
+    <li><i>checkCmd</i> is identical to the parameter of the same
+        name in <a href="makerpcserver.html">dp_MakeRPCServer</a>.
+        It defaults to none.</li>
+</ul>
+
+<p><b>Examples</b></p>
+
+<dl>
+    <dt><tt>dp_MakeRPCClient xyzzy.foo.com 5150</tt></dt>
+    <dt><tt>dp_MakeRPCClient foo.bar.com 4123 myCheckerProc</tt></dt>
+</dl>
+</body>
+</html>
+

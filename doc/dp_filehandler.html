@@ -1,0 +1,121 @@
+<html>
+<title>dp_filehandler</title>
+<head>
+<h3>
+dp_filehandler - to handle file descriptor conditions<br>
+dp_isready - Check if a socket has data pending<br>
+dp_update - Process pending events and/or when-idle handlers<br>
+dp_after - Execute a command after a certain amount of time has elapsed<br>
+dp_whenidle - Execute a command when the system is idle<br>
+dp_waitvariable - Wait for a variable to be modified<br>
+</h3>
+</head>
+<body>
+<pre>
+dp_filehandler sockId ?mode command?
+dp_isready sockId
+dp_update ?idletasks?
+dp_after ms ?arg1 arg2 arg3 ...?
+dp_whenidle command ?arg1 arg2 arg3 ...?
+dp_waitvariable variable
+</pre>
+<hr>
+The dp_isready command  checks  whether  sockId  is  readable  or
+writeable using a select(2) system call.  It returns a list of up
+two boolean values (i.e., 1 or 0).   The  first  value  specifies
+whether sockId is readable, and the second value specifies wheth-
+er sockId is writeable.  For example, the tcl expression
+<pre>
+if [lindex [dp_isready file3] 1] {MyOutput file3}
+</pre>
+calls MyOutput if file3 is writeable.
+<P>
+The dp_update command is equivalent to the Tk  "update"  command,
+except  that  it operates even if a connection to the X server is
+not present.  See the Tk documentation on "update" for an  expla-
+nation of it's usage.
+<P>
+The dp_after command is equivalent to the Tk "after" command, ex-
+cept that it operates even if a connection to the X server is not
+present.  See the Tk documentation on "after" for an  explanation
+of it's usage.
+<P>
+The dp_whenidle command arranges for the specified Tcl/Tk command
+to be evaluated whenever the system is about to go to sleep wait-
+ing for an event to occur.
+<P>
+The dp_waitvariable command is equivalent to the Tk "tkwait vari-
+able"  command,  except  that it operates even if a connection to
+the X server  is  not  present.   See  the  Tk  documentation  on
+"tkwait" for an explanation of it's usage.
+<P>
+The dp_filehander command allows one to specify a Tcl/Tk  command
+which  will be evaluated whenever the file descriptor represented
+by sockId is readable, writable, and/or has an exceptional condi-
+tion pending.  Command will be invoked with two arguments append-
+ed: a single character indicating the mode ('r',  'w',  or  'e'),
+and the sockId.
+<P>
+A sockId is an identifier which represents a file descriptor.  It
+is  identical  to  the  identifier manipulated by the Tcl-DP (Tcl
+Distributed Programming) network connection  management  commands
+(dp_connect,  dp_shutdown,  etc.).  SockId's are also manipulated
+by the read, eof, gets, puts, and close file management  commands
+of Tcl.
+<P>
+The mode argument indicates the situations when the command  will
+be evaluated.  It may be any combination of the following values:
+<P><UL><LI>
+r - Eval command whenever there is data to be read from the sockId.
+The  command is evaluated with two arguments appended: r to indi-
+cate that data is readable on the file descriptor, and the  sock-
+Id,  which  represents the file descriptor that is readable.  The
+command should read at least some data from the sockId, or other-
+wise command will be called continuously.
+</LI><LI>
+w - Eval command whenever data can be written to the sockId without
+blocking.   The command is evaluated with two arguments appended:
+w to indicate that the file descriptor is writable, and the sock-
+Id, which represents the writable file descriptor.
+</LI><LI>
+e - Eval command whenever there is an exceptional condition pending
+on  the  sockId.  The command is evaluated with two arguments ap-
+pended: e to indicate exception, and the sockId, which represents
+the file descriptor with the exceptional condition.
+</LI></UL>
+If the mode and command arguments are  not  specified,  then  any
+previously  specified  command  for  the given sockId is deleted.
+Specifying a new command using the  dp_filehandler  command  will
+also delete any previously specified command for a sockId.
+<P>
+The following file handlers create a telnet like interface to the
+sendmail  process (the smtp port) running on the local host.  The
+command "say" sends the string passed to it to sendmail.  The re-
+ply  is  automatically  printed  on stdout by the get_remote pro-
+cedure.
+<pre>
+proc get_remote {mode fid} {
+    # Exit if remote connection closed on us.
+    if {[gets $fid input] == -1} {
+        puts stdout "Connection closed by foreign host."
+        exit
+    }
+    puts stdout $input
+}
+
+proc say {args} {
+    global remote
+    puts $remote $args;
+}
+
+set remote [lindex [dp_connect localhost smtp] 0]
+dp_filehandler $remote r get_remote
+</pre>
+<hr>
+Pekka Nikander, Telecom Finland (Pekka.Nikander@ajk.tele.fi) <br>
+Extended by Tim MacKenzie (tym@dibbler.cs.monash.edu.au) <br>
+Further enhancements by Brian Smith (bsmith@cs.berkeley.edu) <br>
+and Steve Yen (syen@cs.berkeley.edu) <br>
+
+</body>
+</html>

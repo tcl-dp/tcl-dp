@@ -1,0 +1,60 @@
+<html>
+<title>dp_atexit</title>
+<head>
+<h3>dp_atexit - Arrange for commands to be evaluated when the process
+is exited</h3>
+</head>
+<body>
+<HR>
+<P>
+<pre>
+dp_atexit option ?cmd?
+</pre>
+The dp_atexit command manages the dp_atexit list, a list of call-
+back  routines that are evaluated just before the tcl+tk applica-
+tion is exited.  This is useful for applications where  clean  up
+actions  must be performed before a process can safely exit.  The
+argument option specifies the operation to be  performed  on  the
+dp_atexit list.  The valid options are:
+<pre>
+dp_atexit list
+</pre>
+Returns the current dp_atexit list.
+<pre>
+dp_atexit set newList
+</pre>
+Sets the dp_atexit list newList.
+<pre>
+dp_atexit append callback
+</pre>
+Append callback to the end of the dp_atexit list.
+<pre>
+dp_atexit appendUnique callback
+</pre>
+Appends callback to the end of the dp_atexit list if it's not al-
+ready a member of the list.
+<pre>
+dp_atexit prepend callback
+</pre>
+Inserts callback at the front of the dp_atexit list.
+<pre>
+dp_atexit insert beforeCallback callback
+</pre>
+Inserts callback before beforeCallback in the dp_atexit list.  If
+beforeCallback is not in the dp_atexit list, no action is taken.
+<pre>
+dp_atexit delete callback
+</pre>
+Delete callback from the dp_atexit list.  If callback is  not  in
+the dp_atexit list, no action is taken.
+<pre>
+dp_atexit clear
+</pre>
+Clears the dp_atexit list.
+<P>
+<hr>
+Brian Smith (bsmith@cs.berkeley.edu) <BR>
+Steve Yen (syen@cs.berkeley.edu) <BR>
+Stephen Tu (tus@roger-rabbit.cs.berkeley.edu) <br>
+</body>
+</html>

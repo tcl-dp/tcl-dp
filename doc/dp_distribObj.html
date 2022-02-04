@@ -1,0 +1,168 @@
+<html>
+<title>dp_distribObj</title>
+<head>
+<h3>
+<pre>
+dp_DistributeObject   dp_UndistributeObject   dp_setf
+dp_AppendTriggerUnique   dp_AppendTrigger   dp_getf
+dp_SetTrigger   dp_ReleaseTrigger   dp_ClearTrigger
+dp_GetTriggers
+  - Tcl-DP support for replicated, distributed objects
+</pre>
+</h3>
+</head>
+<body>
+<HR>
+<P>
+The distributed object commands described here are  part  of  the
+Tcl-DP  (Tcl Distributed Programming) extension to Tcl/Tk.  These
+Tcl/Tk commands are used to manage objects which are  distributed
+among  several  Tcl/Tk  processes.   The Tcl/Tk processes must be
+linked by Tcl-DP remote procedure call (RPC) connections.
+<P>
+An object in Tcl-DP is a procedure, just like a  widget  instance
+of Tk is a procedure.  A procedural object must take as its first
+argument a method selector.  In other words,  if  object  is  the
+name of a procedural object:
+<pre>
+object method ?args ...?
+</pre>
+Objects can have slots.  Objects which are to be distributed  using
+Tcl-DP must handle three methods, configure and slot-value,
+which access the slots of the object, and destroy, which destroys
+the object.
+<P>
+The configure method must handle three different forms  of  arguments,
+which makes it very much like the configure option for Tk
+widgets:
+<pre>
+object configure ?-slot?
+object configure ?-slot value ...?
+object configure
+</pre>
+When the Tcl/Tk expression "object configure" is  evaluated,  the
+return  value  is  a  list of triplets of the form {-slot default
+current}, one triplet for each slot  of  the  object.   The  slot
+gives  the  name  of the slot, default gives the default value of
+the slot when the  object  is  created,  and  current  gives  the
+current  value  of the slot within the object.  Furthermore, when
+the command "object configure -slot"  is  evaluated,  the  return
+value  should be the triplet associated with the given slot.  The
+command "object configure -slot value" will set the value of  the
+slot of the object to the given value.
+<P>
+The slot-value method must take one argument:
+<pre>
+object slot-value ?slot?
+</pre>
+The slot-value method returns the current value of a slot  of  an
+object.
+<P>
+The destroy method takes no arguments:
+<pre>
+object destroy
+</pre>
+The destroy method frees up all memory associated  with  the  ob-
+ject, and deletes the command "object" from the interpreter.
+<P>
+Objects are usually defined in C for speed, with a Tcl access in-
+terface,  just  like Tk widgets are defined in C but have Tcl ac-
+cess interfaces.   Objects  can  also  be  defined  using  Tcl/Tk
+scripting only, as Tcl-DP supplies several utility procedures for
+<a href="dp_object.html">creating objects</a> with Tcl/Tk scripting only.
+<P>
+Each object to be distributed must also support a creator command
+or  makeCmd.   This  is the command used to create an object.  It
+should be of the form  "makeCmd  objName  ?-slot1  value1  -slot2
+value2  ...?".   This  command  should create a procedural object
+called objName and initialize the slots the of new object.
+<P>
+For example, suppose a point object named p1 has two slots, x and
+y, and the default value for each slot is 0.  Suppose the current
+value of x is 1 and the current value of y is 2.  If the  makeCmd
+is called point, then to create such an object, evaluate the command
+"point p1 -x 1 -y 2".  Then the  command  "p1  config"  will
+have  the  return  value  of {{-x 0 1} {-y 0 2}}, the command "p1
+config -x" will have the return value of -x 0 1, and the  command
+"p1 slot-value x" will have the return value of 1.
+<P>
+Several assumptions were made in the development of  the  distributed
+object system.  First, the graph of RPC connected processes
+is assumed to  be  acyclic.   If  this  assumption  is  violated,
+deadlock  could  result.   Second,  each slot of an object has an
+owner process.  Although the value of a slot can be  set  in  any
+process, it is most efficient to do so in the owner process.
+<pre>
+dp_setf object slot value
+</pre>
+The dp_setf command is used to set the value of a slot in a  distributed
+object.  The side effect of this command includes replicating the new
+value of the slot to all processes where  the  object is distributed.
+<pre>
+dp_getf object slot
+</pre>
+The dp_getf command is used to get the current value of a slot in
+a  distributed object.  It is the counterpart of the dp_setf command.
+<pre>
+dp_DistributeObject object processes makeCmd
+</pre>
+Dp_DistributeObject arranges for object to be distributed to  the
+given  processes.   The argument object should be the name of the
+object to be distributed, processes should be a list of  sockId's
+(which we can use with dp_RPC) which represent connections to remote
+processes, and makeCmd should be the creator command for the
+object, as described above.
+<pre>
+dp_UndistributeObject object processes
+</pre>
+Dp_UndistributeObject arranges for the slots of object to not  be
+shared  anymore  with  remote  processes.   The  processes (which
+should be a list of sockId's which represent  dp_RPC  connections
+to  remote  processes) supplied should be the same as or a subset
+of the processes originally passed into dp_DistributeObject.  The
+object still exists in all processes, but its slots are no longer
+shared.
+<pre>
+dp_SetTrigger when object slot trigger-list
+</pre>
+Dp_SetTrigger is used to cause each Tcl command  in  trigger-list
+to be evaluated whenever a call to dp_setf causes the slot of object
+to change value.  If  when  is  "before,"  each  command  in
+trigger-list  will  be  evaluated before the slot is updated.  If
+when is "after," each command in trigger-list will  be  evaluated
+after  the  slot is set.  The following commands can also be used
+to manipulate this trigger-list.
+<pre>
+dp_GetTriggers when object slot cmd
+</pre>
+Dp_GetTriggers returns the trigger list associated with  slot  of
+object.
+<pre>
+dp_AppendTrigger when object slot cmd
+</pre>
+Dp_AppendTrigger is used to add cmd to the trigger list associated
+with slot of object.
+<pre>
+dp_AppendTriggerUnique when object slot cmd
+</pre>
+Dp_AppendTriggerUnique is used to add cmd to the trigger list associated
+with  slot of object only if cmd is not already part of
+the trigger list.
+<pre>
+dp_ReleaseTrigger when object slot cmd
+</pre>
+Dp_ReleaseTrigger deletes cmd from the  trigger  list  associated
+with slot of object.
+<pre>
+dp_ClearTrigger when object slot
+</pre>
+Dp_ClearTrigger clears the trigger list associated with  slot  of
+object.
+
+<P>
+<hr>
+Brian Smith (bsmith@cs.berkeley.edu) <BR>
+Steve Yen (syen@cs.berkeley.edu) <BR>
+Stephen Tu (tus@roger-rabbit.cs.berkeley.edu) <br>
+</body>
+</html>

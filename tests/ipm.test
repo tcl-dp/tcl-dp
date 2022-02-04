@@ -1,0 +1,256 @@
+# ipm.test --
+#
+#	Test the IP multicasting protocol
+#
+
+# UNIX only----------------------------------------
+# See if this system even HAS IP multicast
+#
+if {$tcl_platform(platform) == "unix"} {
+	if {[catch {dp_connect ipm} msg]} {
+		if {[string match [string range $msg 0 7] "IP multi"]} {
+			puts stdout "*** " nonewline
+			puts stdout $msg
+			::tcltest::cleanupTests
+			return $::tcltest::numTests(Failed)
+		}
+	}
+}
+
+# CMake creates testconfig.tcl from testconfig.tcl.in, substituting CMake variables.
+source [file join tests testconfig.tcl]
+
+
+test ipm-1.0.0 {dp_connect command} {
+    list [catch {
+	dp_connect ipm -bar
+    } msg] $msg
+} {1 {unknown option "-bar", must be -group, -myport or -ttl}}
+
+test ipm-1.0.1 {dp_connect command} {
+    list [catch {
+	dp_connect ipm -bar foo
+    } msg] $msg
+} {1 {unknown option "-bar", must be -group, -myport or -ttl}}
+
+test ipm-1.1.0 {dp_connect command} {
+    list [catch {
+	dp_connect ipm -myport
+    } msg] $msg
+} {1 {value for "-myport" missing}}
+
+test ipm-1.1.1 {dp_connect command} {
+    list [catch {
+	dp_connect ipm
+    } msg] $msg
+} {1 {option -group must be specified}}
+
+test ipm-1.1.2 {dp_connect command} {
+    list [catch {
+	dp_connect ipm -group localhost
+    } msg] $msg
+} {1 {option -myport must be specified}}
+
+test ipm-1.2.0 {dp_connect command} {
+    list [catch {
+	dp_connect ipm -myport badport
+    } msg] $msg
+} {1 {expected integer but got "badport"}}
+
+test ipm-1.2.1 {dp_connect command} {
+    list [catch {
+	dp_connect ipm -myport -1234
+    } msg] $msg
+} {1 {expected non-negative integer but got "-1234"}}
+
+test ipm-1.2.2 {dp_connect command} {
+    list [catch {
+	dp_connect ipm -ttl badttl
+    } msg] $msg
+} {1 {expected integer but got "badttl"}}
+
+test ipm-1.2.3 {dp_connect command} {
+    list [catch {
+	set id [dp_connect ipm -group 224.0.0.1 -myport 47217 -ttl 3]
+	string range $id 0 2
+    } msg] $msg
+} {0 ipm}
+
+#
+# Our HP-UX machine passes the IPM check in ./configure but
+# does not actually have IPM in the kernel.  This is a last
+# resort check to catch this bug.
+# Some systems have the IPM header definitions, but aren't
+# actually running a multicast kernel.  You can see if your
+# system supports multicast by using "ifconfig" to see
+# if MULTICAST is one of the interface flags.
+#
+
+if {[catch {close $id}]} {
+    puts ""
+    puts ""
+    puts stdout "*** IPM does not seem to work on this system. Aborting test..."
+    puts ""
+    puts ""
+    set ipm 0
+	::tcltest::cleanupTests
+	return $::tcltest::numTests(Failed)
+
+}
+
+test ipm-2.1 {Opening port} {
+    list [catch {
+        set csock [dp_connect ipm -group 224.76.0.1 -myport 47215 -ttl 3]
+	string range $csock 0 2
+    } msg] $msg
+} {0 ipm}
+
+test ipm-2.2 {loop back} {
+    list [catch {
+	puts $csock hello1
+	gets $csock
+    } msg] $msg
+} {0 hello1}
+
+catch {close $csock}
+
+#
+# fconfigure tests
+#
+set sock [dp_connect ipm -group 224.76.0.1 -myport 47217]
+
+test ipm-2.6.1 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock
+    } msg] $msg
+} {0 {-blocking 1 -buffering none -buffersize 4096 -encoding binary -eofchar {{} {}} -translation {lf lf} -recvBuffer 8192 -reuseAddr 1 -sendBuffer 8192 -loopback 1 -group 224.76.0.1 -myport 47217}}
+
+test ipm-2.6.2 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -blocking 0
+    } msg] $msg
+} {0 {}} 
+
+test ipm-2.6.3 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -blocking
+    } msg] $msg
+} {0 0}
+
+test ipm-2.6.4 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -sendBuffer 4096
+    } msg] $msg
+} {0 {}}
+
+test ipm-2.6.5 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -sendBuffer
+    } msg] $msg
+} {0 4096}
+
+test ipm-2.6.6 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -sendBuffer -1
+    } msg] $msg
+} {1 {Buffer size must be > 0}}
+
+test ipm-2.6.7 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -sendBuffer foo
+    } msg] $msg
+} {1 {expected integer but got "foo"}}
+
+test ipm-2.6.8 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -recvBuffer 4096
+    } msg] $msg
+} {0 {}}
+
+test ipm-2.6.9 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -recvBuffer
+    } msg] $msg
+} {0 4096}
+
+test ipm-2.6.10 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -recvBuffer -1
+    } msg] $msg
+} {1 {Buffer size must be > 0}}
+
+test ipm-2.6.11 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -recvBuffer foo
+    } msg] $msg
+} {1 {expected integer but got "foo"}}
+
+
+test ipm-2.6.12.0 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -reuseAddr foo
+    } msg] $msg
+} {1 {expected boolean value but got "foo"}}
+
+test ipm-2.6.12.1 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -reuseAddr 0
+    } msg] $msg
+} {0 {}}
+
+test ipm-2.6.12.2 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -reuseAddr 
+    } msg] $msg
+} {0 0}
+
+test ipm-2.6.12.3 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -reuseAddr 1
+    } msg] $msg
+} {0 {}}
+
+test ipm-2.6.12.4 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -reuseAddr
+    } msg] $msg
+} {0 1}
+
+test ipm-2.6.12.5 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -loopback
+    } msg] $msg
+} {0 1}
+
+    test ipm-2.6.12.6 "fconfigure ipm" -constraints win {
+	list [catch {
+	    fconfigure $sock -loopback 0
+	} msg] $msg
+    } {1 {Loopback may not be turned off in Windows.}}
+
+    test ipm-2.6.12.7 "fconfigure ipm" -constraints unix {
+	list [catch {
+	    fconfigure $sock -loopback 0
+	} msg] $msg
+    } {0 {}}
+
+test ipm-2.6.12.8 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -myport
+    } msg] $msg
+} {0 47217}
+
+test ipm-2.6.12.9 "fconfigure ipm" {
+    list [catch {
+	fconfigure $sock -myport 1700
+    } msg] $msg
+} {1 {Port may not be changed after creation.}}
+
+catch {close $sock}
+
+::tcltest::cleanupTests
+return $::tcltest::numTests(Failed)
+
+
+
+

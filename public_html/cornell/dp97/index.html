@@ -1,0 +1,407 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>Tcl-DP: Distributed Processing for Tcl</title>
+</head>
+
+<body bgcolor="#FFFFFF">
+
+<p align="center"><font size="6">Redesigning Tcl-DP</font></p>
+
+<p align="center"><font size="4">Mike Perham<br>
+Brian C. Smith<br>
+Tibor Jánosi<br>
+Ioi Lam<br>
+<i>Department of Computer Science<br>
+Cornell University<br>
+Ithaca, New York 14853<br>
+</i>{mperham, bsmith,janosi,ioi}@cs.cornell.edu</font></p>
+
+<p><font size="4"></font>&nbsp;</p>
+
+<p><font size="5"><b>Abstract</b></font></p>
+
+<p>Tcl-DP is a loadable module for Tcl that adds advanced
+communication features to Tcl/Tk. Tcl-DP supports communication
+by serial links, IP-multicast, TCP, UDP, and email, contains a
+remote procedure call (RPC) mechanism, and supports the design of
+new protocols using modules called <i>filters</i>. Tcl-DP 1.0
+[Smi93] was released four years ago and has since been used for
+numerous commercial and academic projects. With age, however, the
+code became so brittle that adding new features and porting to
+new versions of Tcl was nearly impossible. Furthermore, many of
+Tcl-DP&#146;s original features were incorporated in the Tcl
+core, making them redundant in Tcl-DP. Hence, we decided to write
+the latest version of Tcl-DP (version 4.0) from scratch. In this
+paper, we describe the new features of Tcl-DP 4.0, its
+architecture and implementation, and problems we encountered with
+Tcl&#146;s new I/O system.</p>
+
+<p><font size="5"><b>The Tcl-DP API</b></font></p>
+
+<p>The Tcl-DP API contains two main parts: commands for general
+communication and command for remote procedure call (RPC). Figure
+1 demonstrates Tcl-DP&#146;s RPC mechanism by showing how to
+implement a network-wide server for generating unique
+identifiers. The left side of the figure shows the code that is
+executed on the server, the right side shows the code that is
+executed on the client.</p>
+
+<p align="center"><font size="3"><img src="dp97.h2.gif"
+width="567" height="164"></font></p>
+
+<p align="center"><font size="3">Figure 1 -- A Simple ID server</font></p>
+
+<p>The first command executed on both client and server is the
+Tcl <font face="Courier New">package</font> command, which makes
+Tcl-DP library functions and commands available in the current
+Tcl interpreter. The server executes the <font face="Courier New">dp_MakeRPCServer</font>
+command, which creates a socket that is waiting for a client to
+connect. Finally, the server defines the <font face="Courier New">getID</font>
+command, which generates and returns a unique identifier.</p>
+
+<p>The client connects to the server using the <font
+face="Courier New">dp_MakeRPCClient</font> command, which returns
+a handle that can be used to communicate to the server. Finally,
+the client invokes the <font face="Courier New">getID</font>
+command on the server using the <font face="Courier New">dp_RPC</font>
+command. This causes a message containing the command to be
+evaluated to be sent to the server, where it is evaluated and the
+results returned.</p>
+
+<p>Tcl-DP also contains commands to support basic network
+communication. Figure 2 shows how to use Tcl-DP&#146;s
+communication facilities to transfer the file <font
+face="Courier New">/etc/motd</font> from a client machine to the
+server (alvin.cs.cornell.edu).</p>
+
+<p align="center"><font size="4"><img src="dp97.h3.gif"
+width="578" height="250"></font></p>
+
+<p align="center"><font size="3">Figure 2 &#150; Simple network
+communication</font></p>
+
+<p>After loading Tcl-DP using the <font face="Courier New">package</font>
+command, the server uses Tcl-DP&#146;s <font face="Courier">dp_connect</font>
+command to create a TCP socket that is waiting for a connection
+on port 1944. The server then issues the <font face="Courier New">dp_accept</font>
+command, which blocks until a client connects, and then returns a
+handle for the newly connected client. Once a client is
+connected, the server opens <font face="Courier New">/tmp/motd</font>,
+copies the data sent over the channel into it, and closes the
+file and socket.</p>
+
+<p>The client connects to the server using <font
+face="Courier New">dp_connect</font>, giving the hostname and
+port number of the waiting server. After connecting, the client
+opens <font face="Courier New">/etc/motd</font>, copies it to the
+channel, and closes the file and socket.</p>
+
+<p>Note that once a channel is opened, it is treated as any other
+file: it can be read from, written to, or checked for the EOF
+condition (which, in the case of TCP, this means the connection
+has been closed).</p>
+
+<p><font size="5"><b>New Features</b></font></p>
+
+<p>The features described above were available in earlier
+versions of Tcl-DP. In version 4.0, we added several new
+features. This section describes those features.</p>
+
+<p>In addition to TCP, UDP and IP multicast, DP 4.0 supports
+communication via serial ports and email. No matter what its
+type, a channel is opened using the dp_connect command and
+supports the same input/output operations. The mechanism allows
+one channel to be substituted for another in most programs &#150;
+only the channel creation and configuration options (issued
+through the Tcl <font face="Courier New">fconfigure</font>
+command) differ. For example, by changing the parameters to <font
+face="Courier New">dp_connect</font> and deleting the call to <font
+face="Courier New">dp_accept</font> in Figure 2, we can transfer
+the file over a serial line instead of a TCP connection, as shown
+in Figure 3.</p>
+
+<p align="center"><font size="1"><img src="dp97.h4.gif"
+width="575" height="176"></font></p>
+
+<p align="center"><font size="3">Figure 3 &#150; Communication
+over a serial connection</font></p>
+
+<p>The Tcl-DP RPC mechanism has also been changed and enhanced.
+Recursive and out-of-order RPCs are now supported. This point
+will be covered in detail below. Perhaps the most important new
+ability is that RPCs can now be performed over any Tcl channel as
+long as it has been registered with the <font face="Courier">dp_admin</font>
+command. More precisely, once a channel is created, the program
+can call <font face="Courier New">dp_admin register chanID</font>,
+which creates a file handler so that an inbound RPC request is
+automatically processed. Calling <font face="Courier New">dp_admin
+delete chanID</font> disables this behavior. The significance of
+this feature is that <font face="Courier New">dp_RPC</font> and <font
+face="Courier New">dp_RDO</font> can be performed over any
+channel, although <font face="Courier New">dp_RPC</font> should
+only be performed over reliable channels since packet loss can
+cause a program to hang while waiting for a response from the
+server.</p>
+
+<p>Another new feature in DP 4.0 is <i>filters</i>. Filters sit
+between the program and the channel, transparently modifying data
+(e.g., encrypting/decrypting it). DP 4.0 has two types of
+filters: <i>plugin filters</i> and <i>filter channels</i>. </p>
+
+<p>A plugin filter is designed for the common case where the data
+is modified using a functional interface. Encryption and
+decryption are examples of plugin filters. To create a plugin
+filter, the programmer call dp_connect plugfilter, passing in
+three parameters: the channel to use for input/output, and two
+filter functions, one for input and one for output.</p>
+
+<p>Figure 4 shows how to use a plugin filter. In this example, a
+server accepts a connection from a client (the first three lines
+of code), and then attaches an exclusive-or (xor) filter to that
+channel to weakly encrypt the data. Any data written to the
+channel is transparently filtered by exclusive-or&#146;ing it
+with a key (the key can be changed using the <font
+face="Courier New">fconfigure</font> command on the plugin
+channel). To decrypt the data, the user needs another xor plugin
+filter on the receiving side.</p>
+
+<p>DP 4.0 comes with a uuencode/decode filter, a xor excryption
+filter, a hex to binary conversion filter, and a <font
+face="Courier">tclfilter</font> plugin which allows any Tcl
+procedure to be used as a filter. New filters are easy to write
+(they require two procedures), and are registered using a C API.</p>
+
+<p>The filter mechanism is general and powerful. For example, by
+using uuencode filters, binary data can be read from, or written
+to, channels. We have used filters to provide a simple command
+line interface to a video camera whose pan/zoom/tilt is
+controlled by a binary protocol over an RS232 interface. We
+believe it is possible to use plugin filters to provide APIs for
+secure communication, authentication, and gateways to binary RPC
+mechanisms.</p>
+
+<p align="center"><font size="3"><img src="dp97.h5.gif"
+width="577" height="100"></font></p>
+
+<p align="center"><font size="3">Figure 4 &#150; Attaching a
+plugin filter</font></p>
+
+<p>Certain tasks are difficult or impossible to perform using
+plugin filters. For these cases, filter channels are appropriate.
+Filter channels are complete channels with configurable options
+and I/O routines. A filter channel is created using the <font
+face="Courier New">dp_connect</font> command, passing in the
+channel type as the first argument and a flag indicating the
+channel to use for input/output. </p>
+
+<p>To understand why filter channels are needed, consider the
+following scenario. A user needs to transmit datagrams over a
+stream channel (e.g., TCP). Since the channel has stream
+semantics, the datagram boundaries will be lost in transmission.
+In other words, if the user sends two datagrams
+&quot;message1&quot; and &quot;message2&quot; over the channel,
+the receiver might read &quot;mess&quot; on the first read, and
+&quot;age1message2&quot; on a second read.</p>
+
+<p>A simple way to keep the datagram boundaries is to build <i>packetizer</i>,
+which attaches a length field to each message. At the receiver, a
+<i>depacketizer</i> reads the length field and returns either a
+whole packet or nothing (in the case of a partial read). It is
+difficult to build a packetizer using plugin because they only
+provide functional filtering. In this case, a filter channel is
+used.</p>
+
+<p>With filter channels, it is possible to build protocol stacks
+that provide, for example, flow control and guaranteed
+transmission over unreliable channels (any takers?).</p>
+
+<p><font size="5"><b>Implementation</b></font></p>
+
+<p><font size="4"><i>Channels</i></font></p>
+
+<p>Since version 7.5, Tcl has performed all I/O via <i>Tcl_Channels</i>.
+Figure 5 shows a block diagram of Tcl-DP&#146;s I/O system. The
+Tcl_Channel abstraction pushes all I/O operations into a <i>channel
+driver</i>, so that a generic set of operations can be performed
+on any communications method. For instance, to read data from a
+channel, one calls the Tcl_Read() function, which will invoke the
+channel driver&#146;s input method to retrieve data available on
+that channel. DP 4.0 provides drivers for 5 channel types: TCP,
+UDP, IP multicast, serial ports and email. The <font
+face="Courier New">dp_RPC</font> and <font face="Courier New">dp_RDO</font>
+commands sit above the Tcl I/O layer, which allows us to use any
+channel for RPC communication. </p>
+
+<p align="center"><img src="dp97.h6.gif" width="186" height="211"></p>
+
+<p><font size="4"><i>RPC</i></font></p>
+
+<p>The implementation of RPCs changed significantly in DP 4.0.
+The new mechanism allows RPCs to be issued over any Tcl channel,
+and handles duplicate or out of order return of RPCs. In
+addition, the protocol contains no binary data (unlike previous
+versions), which allows a Tcl-only implementation of RPC handlers
+using Tcl&#146;s socket command. These changes make the new
+protocol incompatible with previous versions, but we felt the new
+features and bug fixes justified the incompatibility. </p>
+
+<p>Figure 6 shows the layout of an RPC/RDO packet. <i>Length</i>
+is a six digit decimal string that gives the size of the entire
+packet, including the length field itself. <i>Space</i> is a
+delimiter between fields and is simply the space character. <i>Type</i>
+is a one byte token character that denotes the type of this
+packet. For types of packets are defined: RPC (&#145;e&#146;),
+RDO (&#145;d&#146;), error (&#145;x&#146;), or return value
+(&#145;r&#146;). <i>ID</i> is a six digit decimal string that
+specifies an identifier for the RPC message (and its return
+value). It is used in processing out-of-order RPCs, as explained
+below. Finally, <i>msg</i> is the Tcl command to be evaluated.</p>
+
+<p>For example, the command <font face="Courier New">dp_RPC tcp0
+puts hi</font> generates in the packet</p>
+
+<p>&quot;<font face="Courier New"> 23 e 1 puts hi</font>&quot;</p>
+<div align="center"><center>
+
+<table border="1" cellpadding="7" cellspacing="1" width="590">
+    <tr>
+        <td valign="top" width="14%"><font size="3">Length [6]</font></td>
+        <td valign="top" width="14%"><font size="3">Space [1]</font></td>
+        <td valign="top" width="14%"><font size="3">Type [1]</font></td>
+        <td valign="top" width="14%"><font size="3">Space [1]</font></td>
+        <td valign="top" width="10%"><font size="3">ID [6]</font></td>
+        <td valign="top" width="13%"><font size="3">Space [1]</font></td>
+        <td valign="top" width="20%"><font size="3">Msg [len-16]</font></td>
+    </tr>
+</table>
+</center></div>
+
+<p align="center"><font size="3">Figure 6 &#150; RPC packet
+format</font></p>
+
+<p>When a message arrives on an RPC channel, Tcl executes a file
+callback to process the message. This callback reads the message,
+buffering partial reads if necessary. It then processes the
+packet as follows:</p>
+
+<ul>
+    <li>If the packet is an RPC (as determined by the <i>type</i>
+        field), the command is evaluated. If there is an error, <i>interp-&gt;errorInfo</i>
+        is returned to the sender in <i>msg</i>. Otherwise, <i>interp-&gt;result</i>
+        is returned to the sender in <i>msg</i>.</li>
+    <li>If the packet is an RDO, the command is evaluated.
+        Nothing is returned to the sender.</li>
+    <li>If the packet is an error code or a return value, the <i>id</i>
+        field is used as an index into the <i>activation record</i>
+        for the RPC, which is described below. The RPC is marked
+        as received, the error condition set (if appropriate),
+        and <i>msg</i> copied into the activation record.</li>
+</ul>
+
+<p>Whenever an RPC is sent, an identifier (<i>id</i>) is
+generated and an activation record is created. This activation
+record tracks all currently executing RPCs, and allows for
+out-of-order and recursive RPCs. It is stored in a table, using <i>id</i>
+as an index. To understand the function of the activation record,
+consider the following example.</p>
+
+<p>A Tcl-DP process sends an RPC (id=1) to host A. DP creates an
+activation record for the RPC and waits in an event loop for the
+return message. While waiting, another event (e.g., a timer
+event) triggers the issuance of a second RPC (id=2) to host B.
+Again, DP DP creates an activation record for the RPC and waits
+in a new event loop for the return message. If RPC #1 now
+returns, it can not be processed immediately, since the current
+event loop, and associated call stack, is for RPC #2. Thus, DP
+simply records the RPC return value in the activation record
+associated with RPC #1. When RPC #2 returns, it is marked as
+received, breaking the event loop and return to the original
+loop. This loop exits immediately, since the activation record
+indicates the RPC is received.</p>
+
+<p>The surprising thing about the mechanism is that its
+expression in C is extremely elegant. The callback for processing
+a return value or error message just marks the appropriate
+activation record. The event loop simply processes one event
+until the associated activation record indicates the return value
+has been received.</p>
+
+<p><font size="5"><b>Open Issues</b></font></p>
+
+<p>While designing DP 4.0, we ran into several problems, which we
+discuss in this section.</p>
+
+<p><font size="4"><i>Peeking and Tcl I/O</i></font></p>
+
+<p>In previous versions of DP, peeking was allowed on socket
+reads. Peeking allows a <font face="Courier New">read</font>
+function call to return a portion of the input available on a
+channel without consuming the data. It is useful when processing
+input messages, since a message header can be read to decide
+which routine should process the message.</p>
+
+<p>The Tcl I/O subsystem buffers all channel input.
+Unfortunately, this buffering also makes peeking on a channel
+impossible. Consider the following example: a user wishes to peek
+at the first 2 bytes of a 12-byte message on a UDP channel.
+Suppose the message is &quot;123456789abc&quot;. Assume we <font
+face="Courier New">fconfigure</font> the socket for peeking, so
+that the <font face="Courier New">read()</font> system call does
+not consume the available data on the socket. When Tcl calls the
+channel&#146;s input procedure to read the data on the socket; it
+reads 10 bytes, returning 2 bytes (&quot;12&quot;) to the caller
+and buffering the rest (&quot;3456789a&quot;). When the program
+attempts to read the message out of the socket, Tcl will
+concatenate the 8 bytes of buffered data with data available on
+the socket, resulting in a 20 byte message
+(&quot;3456789a123456789abc&quot;).</p>
+
+<p>We provide a work-around for this problem using the <font
+face="Courier New">dp_recv</font> command, which allows direct,
+unbuffered access to a channel&#146;s input procedure.</p>
+
+<p><font size="4"><i>RPC over unreliable channels</i></font></p>
+
+<p>The dp_RPC command blocks until a return value is received. In
+DP, the RPC procedure waits in an event loop, repeatedly calling <font
+face="Courier">Tcl_DoOneEvent()</font> until an answer for the
+RPC is received. Unfortunately, this also means that when an RPC
+message (or its return value) is lost, the dp_RPC call will never
+return. Since DP 4.0 allows RPC over unreliable (e.g., UDP)
+channels, such an event is possible. We see three work-arounds
+for this case. First, one can always use <font face="Courier New">dp_RDO</font>
+to remotely invoke a command. Since <font face="Courier New">dp_RDO</font>
+does not block, the program will lock up when a message is lost.
+A second option is to use the <font face="Courier New">&#150;timeout</font>
+flag of <font face="Courier New">dp_RPC</font>. This flag creates
+a timer event that marks the RPC&#146;s activation record as
+complete after a specified time, causing the event loop to
+terminate and the <font face="Courier New">dp_RPC</font> call to
+return an error. The third option is to provide a filter channel
+that implements retransmission for the unreliable channel, and
+then issue RPCs over that channel. We have not yet written such a
+filter channel.</p>
+
+<h2><font size="5"><b>Status and Conclusion</b></font></h2>
+
+<p>In this paper, we described the new features and
+implementation of Tcl-DP 4.0. Tcl-DP 4.0 is a dynamically
+loadable version of Tcl-DP which adds several new features
+including new channel types, channel filters, and better RPC
+support. Tcl-DP is freely available from
+http://www.cs.cornell.edu/Info/Projects/zeno/Tcl-DP/</p>
+
+<h2><font size="5"><b>References</b></font></h2>
+
+<dir>
+    <li>[Smi93] Brian C. Smith, Lawrence Rowe, Stephen Yen. Tcl
+        Distributed Programming. In <i>Proceedings of the 1</i><sup><i>st</i></sup><i>
+        Tcl/Tk Workshop</i>. June 1993.</li>
+</dir>
+</body>
+</html>

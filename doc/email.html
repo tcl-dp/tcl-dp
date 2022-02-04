@@ -1,0 +1,88 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content>
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>Email Channel</title>
+</head>
+
+<body bgcolor="#C0C0C0" text="#000000" link="#0000EE"
+vlink="#551A8B" alink="#FF0000">
+
+<h3>Email Channel</h3>
+
+<p><b>Syntax</b></p>
+
+<p><tt>dp_connect email -address </tt><em><tt>email_adress</tt></em><tt>
+-identifier </tt><em><tt>unique_id</tt></em></p>
+
+<p><b>Comments</b></p>
+
+<p><i>email_address</i> is the address to which outgoing messages
+will be sent, and from which they will be received&nbsp;</p>
+
+<p><i>unique_id</i> must be a unique identifier that will be used
+to generate the files associated with the email channels (see
+below). It is mandatory when opening the first email channel, and
+optional when opening subsequent ones. If given, the value of the
+parameter has to be the same for all opened email channels.
+Different identifiers can be used to open email channels in
+independent processes that run dp. The value of the identifier
+can also be used to recover information from the email files
+after a crash of dpsh (this feature is not implemented).&nbsp;</p>
+
+<p>Incoming email messages will be filtered and the relevant ones
+will be directed toward the files associated with the email
+channels. All incoming messages will be also forwarded to the
+address(es) given in the original ~/.forward file or, if this did
+not exist, to the user's mailbox. The messages sent through email
+channels will always have &quot;email channel&quot; in their
+subject line.&nbsp;</p>
+
+<p>Opening several email channels associated with the same
+address is possible, but an incoming message will be delivered
+only to one of them.&nbsp;</p>
+
+<p>An email channel is always writable, and will never block. The
+channel specific options are the following:&nbsp;</p>
+
+<ul>
+    <li>peek (boolean) - usual interpretation&nbsp;</li>
+    <li>sequence (boolean) - if set, a line of the form
+        &quot;Sequence: &lt;sequence_number&gt;&quot; will be
+        inserted after the subject line of outgoing
+        messages.&nbsp;</li>
+</ul>
+
+<p><b>Temporary Files&nbsp;</b></p>
+
+<p>When the first email channel is opened file ~/.forward is
+created (or extended, if it exists already) to include dpfilter.
+Dpfilter is an utility that selectes incoming email messages for
+which an email channel was opened. These will be stored in files
+~/.emailSpool&lt;unique_id&gt;. File
+~/.emailSeek&lt;unique_id&gt; serves as an index for
+~/.emailSpool&lt;unique_id&gt; ~/.emailChannel&lt;unique_id&gt;
+stores the addresses corresponding to the opened email channel.
+To synchronize the activity of dpsh and dpfilter, a symbolic link
+~/.emailLock&lt;unique_id&gt; is sometimes created.&nbsp;</p>
+
+<p>If dpsh crashes with at least one open email channel, one
+should delete files ~/.email*, and restore the initial state or
+delete the ~/.forward file.&nbsp;</p>
+
+<p><b>Examples&nbsp;</b></p>
+
+<dl>
+    <dt><tt>set first [dp_connect email -address root -identifier
+        100]&nbsp;</tt></dt>
+    <dt><tt>set second [dp_connect email -address
+        foobar@cs.foo.edu]&nbsp;</tt></dt>
+    <dt><tt>fconfigure $first -peek yes -sequence yes&nbsp;</tt></dt>
+</dl>
+</body>
+</html>
+

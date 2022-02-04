@@ -1,0 +1,58 @@
+Tcl-DP API for C
+----------------
+
+The file, dpApi.c, contains functions that can be used to contact a
+Tcl-DP server and for sending RPCs and RDOs for evaluation by the server.
+dpApi.c does not depend on Tcl in any way, so it is ideal for applications
+that do not contain Tcl, yet need to connect to a Tcl-DP server.
+
+Overview
+--------
+
+
+DpServer Dp_ConnectToServer(int inetAddr, int port);
+
+Opens a connection to a Tcl-DP RPC server.  Note that the remote server
+must have been opened using dp_MakeRPCServer or this function will fail.
+-1 will be returned if there was an error.  Both arguments should be
+given in host byte order.
+
+
+char *Dp_RPC(DpServer s, char *msg, struct timeval *tv, int *errorPtr);
+
+This is the function used to send an RPC to server s.  msg is the Tcl
+string to evaluate and tv is the timeout length (or NULL for infinite).
+errorPtr will be non-zero when the function returns if there was an
+error and the return value will be an error message.  Otherwise the
+return value is the return value of the remote evaluation of the RPC.
+
+
+int Dp_RDOSend(DPServer s, char *rdoStr, int flags);
+
+Sends an RDO, rdoStr, to a Tcl-DP RPC server s.  flags is a combonation of
+DP_REPORT_ERROR and DP_RETURN_VALUE.  These act the same as the -callback
+and -error flags in the DP API.  Returns the amount of data sent to the
+server (should be strlen(rdoStr)).
+
+
+char *Dp_RDORead(DPServer s, int *errorPtr);
+
+Receives a response from a previous RDO.  This will block forever if there
+is no response to an RDO (e.g. asking for an error return but there is
+no error).  Returns the Tcl return string or, if errorPtr is non-zero,
+an error message.
+
+
+int Dp_WaitForServer(DPServer s, struct timeval *tv);
+
+Sleeps until there is a message from the server or tv expires.  If tv is
+NULL, we will block until data is received from the server.  Returns 0
+if we timed out, < 0 if there was an error or > 0 if the socket is
+now readable.
+
+
+Bugs
+----
+
+Enter your issue in the trackers at
+http://sourceforge.net/tracker/?group_id=42237

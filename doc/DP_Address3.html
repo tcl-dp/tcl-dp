@@ -1,0 +1,33 @@
+<html>
+<title>Tdp_Address</title>
+<head>
+<h3>Tdp_Address - C level access to Tcl-DP address records</h3>
+</head>
+<body>
+<pre>
+#include "network.h"
+
+struct sockaddr_in *Tdp_FindAddress (name)
+
+char *Tdp_CreateAddress (addr, port)
+char           *name                   /* An address handle. */
+unsigned long   addr                   /* An inet address. */
+int             port                   /* A port number. */
+</pre>
+<hr>
+The above procedures provide C access to the Tcl-DP  "dp_address"
+extension.
+<P>
+The procedure Tdp_CreateAddress creates a record to
+store the given addr and port information and returns an  address
+handle for further access to the created record.
+<P>
+The Tdp_FindAddress 
+procedure returns an address record given an address handle.  
+
+<hr>
+Brian Smith (bsmith@cs.berkeley.edu) <br>
+Steve Yen (syen@cs.berkeley.edu)<br>
+Stephen Tu (tus@roger-rabbit.cs.berkeley.edu)<br>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<html>
+<title>Tcl-DP</title>
+<head>
+<h3>Tcl-DP - distributed programming extension to Tcl/Tk</h3>
+</head>
+<body>
+Tcl-DP is a freely distributable extension to Tcl/Tk  and  stands
+for  Tcl Distributed Programming.  Tcl-DP adds TCP and IP connection
+management, remote procedure call (RPC), and distributed object
+support to Tcl/Tk.  Tcl stands for Tool Command Language, a
+freely distributable, embeddable scripting language.  Tk stands
+for  Toolkit,  a freely distributable X windows widget set extension to Tcl.
+<P>
+This page provides an overview of the Tcl-DP programmer interface.
+The Tcl/Tk commands provided by Tcl-DP can be separated into three levels:
+<P>
+Tcl-DP adds to Tcl/Tk several commands which manage basic TCP and
+IP  network  connections.  Among these connection management commands
+are dp_address, dp_accept, dp_connect, shutdown, dp_sendTo,
+dp_receiveFrom, and dp_filehandler.  These commands provide basically
+the same level of service as the UNIX C  socket(2)  related
+system calls.
+<P>
+These connection management commands return and take as arguments
+identifiers  called  sockId's.   (A sockId represents a UNIX file
+descriptor, which UNIX uses to represent both open files and open
+sockets.   A  socket  is  an  endpoint of network communication.)
+These sockId's are identical to the  identifiers  manipulated  by
+the read, gets, puts, and close file management commands of Tcl.
+<P>
+The RPC commands of Tcl-DP are implemented on top of the  connection
+management  commands  listed above.  For speed, some of the
+RPC commands are actually implemented  in  C  instead  of  Tcl/Tk
+scripting.    These   RPC   commands   include  dp_MakeRPCServer,
+dp_MakeRPCClient, dp_RPC, and dp_CloseRPC.  The basic dp_RPC command
+has the following form:
+<pre>
+dp_RPC sockId ?args?
+</pre>
+Here is an example usage:
+<pre>
+dp_RPC file4 puts stdout "hello world"
+</pre>
+The above RPC command will send its  args  argument  (the  string
+{puts  stdout  "hello  world"})  to the connected remote process,
+represented by file4.  The remote process will evaluate the received
+args string in its Tcl interpreter.  Any return value will
+be sent back to the waiting RPC caller process.  Since  all  data
+and  commands in Tcl/Tk are strings, there are no data conversion
+or format problems.
+<P>
+The <a href="dp_object.html">distributed object</a> commands
+of Tcl-DP are implemented on  top of the RPC commands described
+above.  An object in Tcl-DP is a
+procedure, just like a widget instance of Tk is a  procedure.   A
+procedural object must take as its first argument a method selector.
+In other words, if object is the name of a  procedural  object:
+<pre>
+object method ?args ...?
+</pre>
+Objects can have slots.  Objects which are to be distributed  using
+Tcl-DP  must  handle  two methods, configure and slot-value,
+which access the slots of the object.
+<P>
+The configure method must handle three different forms  of  arguments,
+which makes it very much like the configure option for Tk widgets:
+<pre>
+object configure ?-slot?
+object configure ?-slot value ...?
+object configure
+</pre>
+The slot-value method must take one argument:
+<pre>
+object slot-value ?slot?
+</pre>
+Objects are usually defined in C for speed but have a Tcl  access
+interface.  For example, Tk widgets are defined in C but have Tcl
+access interfaces.  Objects can  also  be  defined  using  Tcl/Tk
+scripting only, as Tcl-DP supplies several utility procedures for
+creating and manipulating objects  with  Tcl/Tk  scripting  only.
+<P>
+Once you have created an object, you may distribute  that  object
+among    several    RPC    connected    processes.     Use    the
+dp_DistributeObject  and  dp_UndistributeObject  commands.   (The
+graph of RPC connections among these processes must be acyclic.)
+<P>
+Once an object is distributed, use the dp_setf and  dp_getf  commands,
+not  the  configure and slot-value methods, to access the
+slots of the distributed object.  These two commands, dp_setf and
+dp_getf,  replicate any slot value changes to all processes where
+the object is distributed.
+<P>
+You may set triggers on any slot of any Tcl-DP distributed object
+with  the  dp_SetTrigger,  and  associated commands.  Trigger are
+code that is evaluated when the value of  a  slot  in  an  object
+changes.
+<P>
+A C language interface is provided for several of the commands of
+Tcl-DP. See <A HREF="DP_Address3.html">DP Address</A>,
+<a href="DP_Packet3.html">DP Packet</A>,
+and <a href="DP_RPC3.html">DP RPC</A>.
+<P>
+The Tcl-DP package provides little support for access and
+authentication security.  With Tcl-DP, any process can send any Tcl/Tk
+command to any remote process.
+<P>
+A standard measure is to remove or  undefine  "dangerous"  Tcl/Tk
+commands,  through  the Tcl rename command.  Some of the Tcl commands
+which you would probably want to remove include open, exec,
+proc, dp_connect (from Tcl-DP), and lastly rename.
+<P>
+The procedure auto_load_all is supplied, which  will  source  all
+autoloading  Tcl  library  scripts  not  already  source'd.   Use
+auto_load_all before you undefine the Tcl proc command.
+<P>
+<hr>
+Brian Smith (bsmith@cs.berkeley.edu) <br>
+Steve Yen (syen@cs.berkeley.edu) <br>
+Stephen Tu (tus@roger-rabbit.cs.berkeley.edu) <br>
+</body>
+</html>

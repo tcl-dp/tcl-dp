@@ -1,0 +1,191 @@
+<html>
+<title>dp_object</title>
+<head>
+<h3>
+<pre>
+dp_objectCreateProc, dp_objectExists, dp_objectFree,
+dp_objectConfigure, dp_objectSlot, dp_objectSlotSet,
+dp_objectSlotAppend, dp_objectSlots
+  - dp_object manipulation using Tcl scripting
+</pre>
+</h3>
+</head>
+<body>
+<pre>
+dp_objectCreateProc class object
+dp_objectExists object
+dp_objectSlots object
+dp_objectFree object
+dp_objectSlot object slot
+dp_objectSlotSet object slot value
+dp_objectSlotAppend object slot value
+dp_objectConfigure class object options
+</pre>
+<hr>
+A procedural object is a Tcl procedure that represents an object.
+The  utility  commands  described  in  this man page allow one to
+easily implement procedural objects using Tcl scripting only.
+<P>
+A procedural object is usually implemented in C  (e.g.,  as  a  C
+struct)  for  speed but has a Tcl access interface.  For example,
+Tk implements its widget classes in C but provides Tcl interfaces
+to  access  those widgets.  Tk uses a procedure to represent each
+widget instance.
+<P>
+The first argument of one of these procedural objects is a method
+selector.   In other words, if object is the name of a procedural
+object:
+<pre>
+object method ?args ...?
+</pre>
+If you use the utility procedures described in this man  page  to
+implement  a procedural object, that object will have a class and
+may have slots.  The class of the object determines what  methods
+the  object  will respond to.  No class inheritance is supported.
+dp_objectCreateProc class object
+<P>
+This command creates a new Tcl procedure to represent a  new  object.
+The new procedure will have the name object and have the
+given class.
+<pre>
+dp_objectExists object
+</pre>
+This command returns 1 if a procedural object named object exists
+in the interpreter and returns 0 otherwise.
+<pre>
+dp_objectFree object
+</pre>
+This command frees up the resources associated with  the  object,
+which  should  have been created with dp_objectCreateProc.  After
+using dp_objectFree on an object, no more references to that  object
+or its slots should be made.
+<pre>
+dp_objectSlots object
+</pre>
+This command returns a list of the slots of  the  procedural  object,
+which  should  have been created with dp_objectCreateProc.
+<pre>
+dp_objectSlot object slot
+</pre>
+This command returns the value of a slot of  the  procedural  object,
+which  should  have been created with dp_objectCreateProc.
+<pre>
+dp_objectSlotSet object slot value
+</pre>
+This command sets the value of a slot of the object, which should
+have been created with dp_objectCreateProc.  If slot is not yet a
+slot of the object, this command will make slot a slot of the object.
+Thus, slots  can be dynamically added to objects created
+using dp_objectCreateProc.   A slot may not be an array.
+<pre>
+dp_objectSlotAppend object slot value
+</pre>
+This command uses lappend  to  append  the  given  value  to  the
+current  value  of the slot of the object, which should have been
+created with dp_objectCreateProc.  If slot is not yet a  slot  of
+the  object,  this  command  will make slot a slot of the object.
+Thus, slots can be dynamically added  to  objects  created  using
+dp_objectCreateProc.
+<pre>
+dp_objectConfigure class object ?options?
+</pre>
+This command provides a Tk "configure" style of slot  access  for
+the  procedural  object,  which  should  have  been created using
+dp_objectCreateProc.  (See example usage  below.)   The  argument
+class  should  be  the class of the object.  The optional options
+argument can be used in the following three formats:
+<pre>
+dp_objectConfigure class object ?-slot?
+dp_objectConfigure class object ?-slot val -slot val ...?
+dp_objectConfigure class object
+</pre>
+The first format of dp_objectConfigure retrieves  the  configuration
+entry for a given slot.  A configuration entry for a slot is
+a triplet of the format of {-slot default value}, where -slot  is
+the  slot  name  prepended  with a hyphen, default is the default
+value for the slot, and value is the current value of  the  slot.
+(Note that this configuration entry format for slots is different
+than the configuration entry format of Tk widget options.)
+<P>
+The second format of dp_objectConfigure sets the  current  values
+of several slots of an object.
+<P>
+The third format of dp_objectConfigure retrieves  the  configuration
+entries of all the slots of the object.
+<P>
+Note that to use dp_objectConfigure, you must  prepend  a  hyphen
+('-')  to  each slot name.  (e.g., "slot" becomes "-slot".)  This
+was designed for pseudo-compatability with the Tk style of widget
+option configuration, since widget options in Tk are all prefixed
+with a '-'.  Also, any slot names, slot, should be  fully  specified
+and not abbreviated.
+<P>
+The command dp_objectCreateProc creates a new Tcl procedure whose
+name  is object to represent a new procedural object. You may invoke
+various methods on the procedural object, using the  following
+general form:
+<pre>
+object method ?arg0 arg1 ...?
+</pre>
+The method argument and the class of  the  object  determine  the
+method invoked.  Methods for classes are specified using the following
+form:
+<pre>
+proc class.method {self arg0 ... argN} {
+   ...method body...
+}
+</pre>
+The first argument self is required in the method  specification.
+The  self  argument  is  set  to  the name of the object that the
+method will get called upon.  The following is a  simple  example
+of  using  the above commands to create a procedural object using
+Tcl scripting only:
+<pre>
+# Define point creator.
+#
+proc makePoint {aPoint args} {
+   eval dp_objectCreateProc point $aPoint;
+   dp_objectSlotSet $aPoint x 0;
+   dp_objectSlotSet $aPoint y 0;
+   eval $aPoint configure $args
+   return $aPoint;
+}
+
+# Define methods of point class.
+#
+proc point.configure {aPoint args} {
+   eval dp_objectConfigure point $aPoint $args;
+}
+
+proc point.slot-value {aPoint slot} {
+  dp_objectSlot $aPoint $slot;
+}
+
+proc point.destroy {aPoint slot} {
+  dp_objectFree $aPoint $slot;
+}
+
+proc point.draw {aPoint} {
+   set x [dp_objectSlot $aPoint x];
+   set y [dp_objectSlot $aPoint y];
+   dot $x $y;
+}
+
+# Instatiate a point and test it out.
+#
+makePoint p;                    # Makes the point
+p configure -x 10 -y 20;        # sets the value to (10,20)
+p configure -x;                 # returns {-x {} 10}
+p configure;                    # returns {{-x {} 10} {-y {} 20}}
+p slot-value x;                 # returns 10
+p draw;                         # calls "dot 10 20"
+dp_objectExists p;              # returns 1
+dp_objectExists p1;             # returns 0
+p destroy;                      # destroys the object
+</pre>
+<hr>
+Brian Smith (bsmith@cs.berkeley.edu)<br>
+Steve Yen (syen@cs.berkeley.edu)<br>
+Stephen Tu (tus@roger-rabbit.cs.berkeley.edu)<br>
+</body>
+</html>

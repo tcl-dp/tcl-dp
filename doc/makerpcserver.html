@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content>
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>dp_MakeRPCServer</title>
+</head>
+
+<body bgcolor="#C0C0C0" text="#000000" link="#0000EE"
+vlink="#551A8B" alink="#FF0000">
+
+<h3>dp_MakeRPCServer</h3>
+
+<p><b>Syntax</b></p>
+
+<p><tt>dp_MakeRPCServer </tt><em><tt>port</tt></em><tt>
+?loginFunc? ?checkCmd?</tt></p>
+
+<p><b>Comments</b></p>
+
+<p>This is a Tcl wrapper procedure for the creating an
+RPC&nbsp;server in one command. The arguments have not been
+changed from 3.x in order to preserve compatibility. This
+procedure creates an RPC TCP&nbsp;server. If you need an
+RPC&nbsp;server on another type of channel, you can use this
+procedure as a template for writing your own.</p>
+
+<ul>
+    <li><i>port</i> is the TCP&nbsp;port to use for the
+        RPC&nbsp;server.</li>
+    <li><i>loginFunc</i> is the procedure called when a client
+        connects to the server. Usually, this command checks for
+        necessary authorization. dp_CheckHost, which is provided
+        in the rpc.tcl library, is the default value.</li>
+    <li><i>checkCmd</i> can be used as a filter to check the RPCs
+        before they are executed.</li>
+</ul>
+
+<p><b>Syntax</b></p>
+
+<dl>
+    <dt><tt>dp_MakeRPCServer 5150</tt></dt>
+    <dt><tt>dp_MakeRPCServer 4149 myLogin CheckThisPal</tt></dt>
+</dl>
+</body>
+</html>
+

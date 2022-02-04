@@ -1,0 +1,35 @@
+#
+# source the nscap file
+#
+if {[file exists $ns_adm/nscap] == 1} {
+    puts "sourcing $ns_adm/nscap"
+    source $ns_adm/nscap
+} else {
+    puts stderr "Can't find nscap file."
+    exit 1
+}
+
+
+set ns [lindex $nameServers 0]
+set host [lindex $ns 0]
+set command [lindex $ns 1]
+
+puts "Starting primary server remotely at $host"
+if {[catch "exec rsh $host -n \"$command -primary\"" msg]} {
+    puts $msg
+    continue
+}
+
+foreach ns [lrange $nameServers 1 end] {
+    set host [lindex $ns 0]
+    set command [lindex $ns 1]
+
+    puts "Starting backup server remotely at $host"
+    if {[catch "exec rsh $host -n \"$command -backup\"" msg]} {
+	puts $msg
+	continue
+    }
+    break
+}	
+
+exit

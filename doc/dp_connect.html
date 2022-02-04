@@ -1,0 +1,57 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content>
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>dp_connect</title>
+</head>
+
+<body bgcolor="#C0C0C0" text="#000000" link="#0000EE"
+vlink="#551A8B" alink="#FF0000">
+
+<h3>dp_connect</h3>
+
+<dl>
+    <dt><b>Syntax</b></dt>
+    <dt>&nbsp;</dt>
+    <dt><tt>dp_connect </tt><em><tt>channelType</tt></em><tt> </tt><em><tt>args</tt></em></dt>
+    <dt>&nbsp;</dt>
+    <dt><b>Comments</b></dt>
+    <dt>&nbsp;</dt>
+    <dt>dp_connect establishes a Tcl-DP&nbsp;channel.&nbsp; The <i>channelType</i>
+        is based on the channel types that are installed; the
+        base Tcl-DP&nbsp;package comes with TCP, UDP, IPM, serial
+        and email channels.&nbsp; The <i>args</i> are specific to
+        each channel type since TCP&nbsp;has completely different
+        options than serial ports do.&nbsp; Please see the
+        channel documentation for information on the available
+        arguments for that channel type.&nbsp; Once the channels
+        are established, one can configure them using the normal <b>fconfigure</b>
+        process.</dt>
+    <dt>&nbsp;</dt>
+    <dt>All I/O&nbsp;on these channels is performed using the
+        standard Tcl <b>puts/gets</b> or the Tcl-DP I/O commands:
+        <a href="dp_copy.html">dp_copy</a>, <a
+        href="dp_send.html">dp_send</a>, and <a
+        href="dp_recv.html">dp_recv</a>.</dt>
+    <dt>&nbsp;</dt>
+    <dt>dp_connect returns the ID of the new channel.</dt>
+    <dt>&nbsp;</dt>
+    <dt><b>Examples</b></dt>
+    <dt>&nbsp;</dt>
+    <dt><tt>set chan [dp_connect tcp -server true -myport 4466]</tt></dt>
+    <dt><tt>dp_connect tcp -host www.foo.bar.com -port 4466</tt></dt>
+    <dt><tt>dp_connect udp -host localhost -port 1906 -myport
+        1905</tt></dt>
+    <dt><tt>dp_connect serial -device serial1</tt></dt>
+    <dt><tt>dp_connect email -address foo@bar.com -identifier 100</tt></dt>
+    <dt><tt>dp_connect ipm -group 227.88.44.11 -myport 19000 -ttl
+        2</tt></dt>
+    <dt>&nbsp;</dt>
+</dl>
+</body>
+</html>
+

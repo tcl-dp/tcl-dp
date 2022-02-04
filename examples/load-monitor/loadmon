@@ -1,0 +1,41 @@
+set socket [lindex [dp_connect -mudp 225.28.199.17 2120 16] 0]
+set address [dp_address create 225.28.199.17 2120]
+
+proc GetLoad {} {
+    set info [split [exec uptime] ,] 
+    lindex [lindex $info 3] 2
+}
+
+proc SendReport {} {
+    global socket address
+    set msg "[dp_hostname] [GetLoad]"
+    dp_sendTo $socket $msg $address
+    dp_after 1000 SendReport
+}
+
+proc RecvReport {mode socket} {
+    global load
+    set info [dp_receiveFrom $socket]
+    set x [lindex $info 1]
+    set hostName [lindex $x 0]
+    set hostLoad [lindex $x 1]
+    set load($hostName) $hostLoad
+}
+
+proc FindBest {} {
+    global load
+    set hosts [array names load]
+    set host [lindex $hosts 0]
+    set bestLoad $load($host)
+    set bestHost $host
+    foreach host [lrange $hosts 1 end] {
+	if {$load($host) < $bestLoad} {
+	    set bestLoad $load($host)
+	    set bestHost $host
+	}
+    }
+    return $bestHost
+}
+
+dp_filehandler $socket r RecvReport
+SendReport

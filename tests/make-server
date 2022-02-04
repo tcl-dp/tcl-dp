@@ -1,0 +1,57 @@
+#
+# When this file is sourced, a server process is automatically
+# started that can be used for for testing purposes.  If the
+# server is already running (i.e., some other test sources this file)
+# then no new server is started.
+#
+# The following global variables are defined as a side effect of
+# sourcing this file:
+#
+#	hostname -- the name of the host on which the server is running
+#	S_PORT -- the port of the server
+
+#
+# Check to see if we haven't sourced already
+#
+if {[info exists S_PORT]} {
+	exit
+}
+
+# testconfig.tcl has already been sourced by rpc.test or api.test
+
+#
+# Determine a port number 
+#
+set S_PORT 8259
+set hostname localhost
+
+#
+# Setup: Start a server as another process, and use it to connect.
+#
+set tclshCmd [info nameofexecutable]
+set sourceDir [file dir [file dir [info script]]]
+set serverScript [file join $sourceDir tests server]
+
+# softwareUnderTestDir and DP_VERSION are defined in testconfig.tcl
+puts stdout "[file tail [info script]] is executing '$tclshCmd $serverScript $softwareUnderTestDir $DP_VERSION $S_PORT'."
+set serv_pid [exec $tclshCmd $serverScript $softwareUnderTestDir $DP_VERSION $S_PORT &]
+
+#
+# This loop keeps trying to connect until it succeeds.
+# Important since the exec may take a while on some machines...
+#
+
+after 2000
+set itry 0
+while {[catch "dp_MakeRPCClient $hostname $S_PORT" rhost]} {
+	puts stdout "Trying to connect to server on host '$hostname', port '$S_PORT'..."
+	incr itry
+	if { $itry > 5 } {
+	    puts stdout "Unable to connect to server"
+	    break
+	}
+	after 2000
+}
+catch {close $rhost}
+
+

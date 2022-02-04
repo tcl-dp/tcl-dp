@@ -1,0 +1,356 @@
+# udp.test
+#
+#	This file tests the udp protocol
+#
+
+# CMake creates testconfig.tcl from testconfig.tcl.in, substituting CMake variables.
+source [file join tests testconfig.tcl]
+
+
+test udp-1.1.1 {dp_connect command} -body {
+    list [catch {
+	dp_connect udp -bar
+    } msg] $msg
+} -result {1 {unknown option "-bar", must be -host, -myaddr, -myport or -port}}
+
+test udp-1.1.2 {dp_connect command} -body {
+    list [catch {
+	dp_connect udp -bar foo
+    } msg] $msg
+} -result {1 {unknown option "-bar", must be -host, -myaddr, -myport or -port}}
+
+#
+# Test arg missing checks
+#
+
+test udp-1.2.1 {dp_connect command} -body {
+    list [catch {
+	dp_connect udp -host
+    } msg] $msg
+} -result {1 {value for "-host" missing}}
+
+test udp-1.2.2 {dp_connect command} -body {
+    list [catch {
+	dp_connect udp -port
+    } msg] $msg
+} -result {1 {value for "-port" missing}}
+
+test udp-1.2.3 {dp_connect command} -body {
+    list [catch {
+	dp_connect udp -myaddr
+    } msg] $msg
+} -result {1 {value for "-myaddr" missing}}
+
+test udp-1.2.4 {dp_connect command} -body {
+    list [catch {
+	dp_connect udp -myport
+    } msg] $msg
+} -result {1 {value for "-myport" missing}}
+
+#
+# Test type checking of args
+#
+
+test udp-1.3.1 {dp_connect command} -body {
+    list [catch {
+	dp_connect udp -host ""
+    } msg] $msg
+} -result {1 {Unknown host ""}}
+
+# This test must only be run if the client can communicate with
+# the DNS
+
+#test udp-1.3.2 {dp_connect command} -body {
+#    list [catch {
+#	dp_connect udp -host foo
+#    } msg] $msg
+#} -result {1 {Unknown host "foo"}}
+
+test udp-1.3.3 {dp_connect command} -body {
+    list [catch {
+	dp_connect udp -port foo
+    } msg] $msg
+} -result {1 {expected integer but got "foo"}}
+
+# Only run if we're on a network
+#test udp-1.3.4 {dp_connect command} -body {
+#    list [catch {
+#	dp_connect udp -myaddr foo
+#    } msg] $msg
+#} -result {1 {Illegal value for -myaddr "foo"}}
+
+test udp-1.3.5 {dp_connect command} -body {
+    list [catch {
+	dp_connect udp -myport foo
+    } msg] $msg
+} -result {1 {expected integer but got "foo"}}
+
+set sock1 {}
+test udp-1.3.6 {dp_connect sock1 command--all further test will fail if this fails} -body {
+	set sock1 [dp_connect udp -host localhost -port 19065 -myport 19056];
+} -returnCodes 0 -match regexp -result {udp[0-9]+}
+
+set sock2 {}
+test udp-1.3.7 {dp_connect sock2 command} -body {
+	set sock2 [dp_connect udp -host localhost -port 19056 -myport 19065];
+} -returnCodes 0 -match regexp -result {udp[0-9]+}
+
+	
+#
+# fconfigure tests
+#
+
+# With tcp buffer size autotuning in newer OSs, the buffer
+# sizes that "fconfigure" returns for the send and receive
+# buffers are not necessarily the default value set by dp.
+# So get the size with "fconfigure $ssock -sendBuffer/recvBuffer".
+set sendBufferSize [fconfigure $sock1 -sendBuffer]
+set recvBufferSize [fconfigure $sock1 -recvBuffer]
+
+test udp-1.4.1 {fconfigure udp} -body {
+	fconfigure $sock1
+} -returnCodes 0 -result [list -blocking 1 -buffering none -buffersize 4096 -encoding binary -eofchar {{} {}} -translation {lf lf} -sendBuffer $sendBufferSize -recvBuffer $recvBufferSize -peek 0 -host 127.0.0.1 -port 19065 -myport 19056]
+
+test udp-1.4.2 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -badopt
+    } msg] $msg
+} -result {1 {bad option "-badopt": must be -blocking, -buffering, -buffersize, -eofchar, -translation, or a channel type specific option}} 
+
+test udp-1.4.3 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -myport 1000
+    } msg] $msg
+} -result {1 {Can't set port after socket is opened}} 
+
+test udp-1.4.3 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock2 -blocking 0
+    } msg] $msg
+} -result {0 {}} 
+
+test udp-1.4.4 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock2 -blocking
+    } msg] $msg
+} -result {0 0}
+
+test udp-1.4.5.1 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -sendBuffer 4096
+    } msg] $msg
+} -result {0 {}}
+
+# With tcp buffer size autotuning in newer OSs, the buffer
+# size that "fconfigure -sendBuffer" returns is not
+# necessarily the value we set it to above.  So just
+# test for any nonzero number.
+test udp-1.4.5.2 {fconfigure udp} -body {
+	fconfigure $sock1 -sendBuffer
+} -returnCodes 0 -match regexp -result {[1-9][0-9]*}
+
+test udp-1.4.5.3 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -sendBuffer -1
+    } msg] $msg
+} -result {1 {Buffer size must be > 0}}
+
+test udp-1.4.5.4 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -sendBuffer foo
+    } msg] $msg
+} -result {1 {expected integer but got "foo"}}
+
+test udp-1.4.6.1 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -recvBuffer 4096
+    } msg] $msg
+} -result {0 {}}
+
+# With udp buffer size autotuning in newer OSs, the buffer
+# size that "fconfigure -recvBuffer" returns is not
+# necessarily the value we set it to above.  So just
+# test for any nonzero number.
+test udp-1.4.6.2 {fconfigure udp} -body {
+	fconfigure $sock1 -recvBuffer
+} -returnCodes 0 -match regexp -result {[1-9][0-9]*}
+
+test udp-1.4.6.3 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -recvBuffer -1
+    } msg] $msg
+} -result {1 {Buffer size must be > 0}}
+
+test udp-1.4.6.4 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -recvBuffer foo
+    } msg] $msg
+} -result {1 {expected integer but got "foo"}}
+
+test udp-1.4.7.1 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -peek 1
+    } msg] $msg
+} -result {0 {}}
+
+test udp-1.4.7.2 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -peek
+    } msg] $msg
+} -result {0 1}
+
+test udp-1.4.7.3 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -peek foo
+    } msg] $msg
+} -result {1 {expected boolean value but got "foo"}}
+
+test udp-1.4.7.4 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -peek 0
+    } msg] $msg
+} -result {0 {}}
+
+test udp-1.4.8.1 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -host 127.0.0.1
+    } msg] $msg
+} -result {0 {}}
+
+test udp-1.4.8.2 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -host
+    } msg] $msg
+} -result {0 127.0.0.1}
+
+test udp-1.4.8.3 {fconfigure udp} -body {
+    fconfigure $sock1 -host resolver1.opendns.com
+	fconfigure $sock1 -host
+} -returnCodes 0 -result 208.67.222.222
+
+test udp-1.4.8.4 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -host localhost
+    } msg1] $msg1 [catch {
+	fconfigure $sock1 -host
+    } msg2] $msg2
+} -result {0 {} 0 127.0.0.1}
+
+test udp-1.4.9.1 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -port 2048
+    } msg1] $msg1
+} -result {0 {}}
+
+test udp-1.4.9.2 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -port
+    } msg1] $msg1
+} -result {0 2048}
+
+test udp-1.4.9.3 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -port -1
+    } msg1] $msg1
+} -result {1 {Port number must be > 0}}
+
+test udp-1.4.9.4 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -port foo
+    } msg1] $msg1
+} -result {1 {expected integer but got "foo"}}
+
+test udp-1.4.9.5 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -port 19065
+    } msg1] $msg1 [catch {
+	fconfigure $sock1 -port
+    } msg2] $msg2
+} -result {0 {} 0 19065}
+
+test udp-1.4.10 {fconfigure udp} -body {
+    list [catch {
+	fconfigure $sock1 -myport 1
+    } msg1] $msg1 [catch {
+	fconfigure $sock1 -myport
+    } msg2] $msg2
+} -result {1 {Can't set port after socket is opened} 0 19056}
+
+#
+# Test send/receive
+#
+
+test udp-1.5.1 {send udp} -body {
+    list [catch {
+	puts -nonewline $sock1 "Testing 1 2 3"
+	flush $sock1
+    } msg] $msg
+} -result {0 {}}
+
+test udp-1.5.2 {read udp} -body {
+    list [catch {
+	read $sock2
+    } msg] $msg
+} -result {0 {Testing 1 2 3}}
+
+#
+# Try out the peek option.  We'll put 2 messages on the wire,
+# and we should get the same one twice.  If so, we clear the
+# peek and we should get the two messages on the next two
+# reads.
+#
+test udp-1.5.3 {peek udp} -body {
+    puts -nonewline $sock1 "12345678901"
+    flush $sock1
+    puts -nonewline $sock1 "12345678902"
+    flush $sock1
+    fconfigure $sock2 -peek 1
+    set x [list [read $sock2] [read $sock2]]
+} -result {12345678901 12345678901}
+
+test udp-1.5.4 {send udp} -body {
+    fconfigure $sock2 -peek 0
+    if {![string compare [lindex $x 1] "12345678901"]} {
+	set x [list [read $sock2] [read $sock2]]
+    } else {
+	set x {12345678901 12345678902}
+    }
+} -result {12345678901 12345678902}
+
+test udp-1.5.5 {dp_from variable} -body {
+    list [catch {
+    	set a $dp_from
+    } msg] $msg
+} -result {0 {{127.0.0.1 19056}}} 
+
+#
+# Shut 'em down
+#
+test udp-1.9.0 {close udp socket} -body {
+    list [catch {
+	close $sock1
+    } msg] $msg
+} -result {0 {}} 
+
+test udp-1.9.2 {close udp socket} -body {
+    list [catch {
+	close $sock2
+    } msg] $msg
+} -result {0 {}} 
+
+test udp-1.9.3 {close udp socket} -body {
+    list [catch {
+	fconfigure $sock2
+    } msg] $msg
+} -result [list 1 "can not find channel named \"$sock2\""]
+
+::tcltest::cleanupTests
+return $::tcltest::numTests(Failed)
+
+
+
+
+
+
+
+

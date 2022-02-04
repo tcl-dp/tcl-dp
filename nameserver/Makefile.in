@@ -1,0 +1,143 @@
+# Directory in which to install the program nswish:
+DP_BIN_DIR =	@DP_BINDIR@
+NS_BIN_DIR =	@NS_BINDIR@
+NS_LIB_DIR =	@NS_LIBDIR@
+NS_ADM_DIR =	@NS_ADMDIR@
+HOSTS =		"@HOSTS@"
+NS_PORT =	@NSPORT@
+LAUNCH_PORT =	@LAUNCHPORT@
+
+# Where to find the insalled version of dptcl/tclsh
+TCLSH =		@TCLSH@
+DPTCL =		$(DP_BIN_DIR)/dptcl
+DPWISH =	$(DP_BIN_DIR)/dpwish
+
+# Where to install the nameserver library files (same place as dp_atexit.tcl)
+DP_LIBRARY =	@DP_LIBRARY@
+
+# Top-level directory for manual entries:
+MAN_DIR =	@MANDIR@
+MAN1_DIR =	$(MAN_DIR)/man1
+MAN3_DIR =	$(MAN_DIR)/man3
+MANN_DIR =	$(MAN_DIR)/mann
+
+# Stuff set in the configure script
+X11_INCLUDES =  @XINCLUDES@
+X11_LIB_DIR =	@XLIBDIR@
+X11_LIB = 	@X11LIB@
+
+TCL_INCLUDES =  @TCL_INCLUDES@
+TCL_LIB_DIR =	@TCL_LIBDIR@
+TCL_LIB = 	@TCL_LIB@
+
+TK_INCLUDES =  @TK_INCLUDES@
+TK_LIB_DIR =	@TK_LIBDIR@
+TK_LIB = 	@TK_LIB@
+
+LIBS = $(X11_LIB_DIR) $(X11_LIB) \
+	$(TCL_LIB_DIR) $(TCL_LIB) \
+	$(TK_LIB_DIR) $(TK_LIB) \
+	@LIBS@ -lm
+
+INCLUDES = $(X11_INCLUDES) $(TCL_INCLUDES) $(TK_INCLUDES) -I../
+
+CFLAGS = @COPTS@
+
+AC_FLAGS =              @DEFS@
+INSTALL =               @INSTALL@
+INSTALL_PROGRAM =       @INSTALL_PROGRAM@
+INSTALL_DATA =          @INSTALL_DATA@
+
+CC =		@CC@
+CC_SWITCHES =	${CFLAGS} ${AC_FLAGS} ${INCLUDES} -DDP_LIBRARY=\"${DP_LIBRARY}\"
+NS_OBJ =	tkAppInit.o tkMain.o ns.o
+
+all: nswish launchd killns startns nscap library/nslib.tcl ns.tcl nsi
+
+nswish: ${NS_OBJ}
+	$(CC) ${NS_OBJ} ../libdpnetwork.a $(LIBS) -o nswish
+
+.c.o:
+	$(CC) -c $(CC_SWITCHES) $<
+
+clean:
+	rm -f *.[ao] core errs *~ \#* TAGS *.E a.out errors nswish test test2
+	rm -f tags config.status config.cache config.log Makefile
+	rm -f launchd killns startns nscap nscap.dpsh library/nslib.tcl
+	rm -f ns.tcl nsi
+
+launchd: launchd.base Makefile
+	rm -f launchd
+	echo \#!${DPTCL} -f > launchd
+	echo set path ${NS_BIN_DIR} >> launchd
+	cat launchd.base >> launchd
+	chmod a+x launchd
+
+killns: killns.base Makefile
+	rm -f killns
+	echo \#!${DPTCL} -f > killns
+	cat killns.base >> killns
+	chmod a+x killns
+
+startns: startns.base Makefile
+	rm -f startns
+	echo \#!${DPTCL} -f > startns
+	echo set ns_adm $(NS_ADM_DIR) >> startns
+	cat startns.base >> startns
+	chmod a+x startns
+
+nsi: nsi.base Makefile
+	rm -f nsi
+	echo \#!${DPWISH} -f > nsi
+	echo set ns_adm $(NS_ADM_DIR) >> nsi
+	cat nsi.base >> nsi
+	chmod a+x nsi
+
+nscap:	nscap.dpsh Makefile
+	rm -f nscap
+	echo "source nscap.dpsh; exit" | $(TCLSH)
+
+ns.tcl:	ns.base Makefile
+	rm -f ns.tcl
+	echo \#!${NS_BIN_DIR}/nstcl -f > ns.tcl
+	echo set ns_adm $(NS_ADM_DIR) >> ns.tcl
+	cat ns.base >> ns.tcl
+
+library/nslib.tcl:	library/nslib.base Makefile
+	rm -f library/nslib.tcl
+	echo set ns_adm $(NS_ADM_DIR) > library/nslib.tcl
+	cat library/nslib.base >> library/nslib.tcl
+
+nscap.dpsh:	nscap.base
+	rm -f nscap.dpsh
+	echo set hosts \{ $(HOSTS) \} > nscap.dpsh
+	echo set nsPort $(NS_PORT) >> nscap.dpsh
+	echo set launchPort $(LAUNCH_PORT) >> nscap.dpsh
+	echo set binDir $(NS_BIN_DIR) >> nscap.dpsh
+	echo set libDir $(NS_LIB_DIR) >> nscap.dpsh
+	echo set admDir $(NS_ADM_DIR) >> nscap.dpsh
+	cat nscap.base >> nscap.dpsh
+
+install: all
+	@echo ""
+	@echo ""
+	@echo "Installing nameserver in ${NS_BIN_DIR} and ${NS_LIB_DIR}..."
+	@echo ""
+	mkdirhier ${NS_BIN_DIR}
+	mkdirhier ${NS_LIB_DIR}
+	mkdirhier ${NS_ADM_DIR}
+	${INSTALL} -s -m 755 nswish ${NS_BIN_DIR}
+	(cd ${NS_BIN_DIR} ; rm -f nstcl ; ln -s nswish nstcl)
+	${INSTALL} -m 755 nsi  ${NS_BIN_DIR}
+	${INSTALL} -m 755 killns  ${NS_BIN_DIR}
+	${INSTALL} -m 755 startns ${NS_BIN_DIR}
+	${INSTALL} -m 644 ns.tcl ${NS_LIB_DIR}
+	${INSTALL} -m 644 nsconfig ${NS_ADM_DIR}
+	${INSTALL} -m 644 nscap ${NS_ADM_DIR}
+	${INSTALL} -m 444 library/nslib.tcl ${DP_LIBRARY}
+	${INSTALL} -m 444 library/cmtp.tcl ${DP_LIBRARY}
+	(cd ${DP_LIBRARY}; echo 'catch {auto_mkindex . *.tcl}; exit' | $(TCLSH))
+	@echo ""
+	@echo "Installation complete.  Please copy launchd to /usr/etc"
+	@echo "on $(HOSTS)"
+#	 ${INSTALL} -c -m 755 launchd /usr/etc

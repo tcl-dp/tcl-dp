@@ -1,0 +1,61 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+<meta http-equiv="Content-Type"
+content="text/html; charset=iso-8859-1">
+<meta name="Author" content>
+<meta name="GENERATOR" content="Microsoft FrontPage 2.0">
+<title>TCP Channel</title>
+</head>
+
+<body bgcolor="#C0C0C0" text="#000000" link="#0000EE"
+vlink="#551A8B" alink="#FF0000">
+
+<h3>TCP Channel</h3>
+
+<p><b>Syntax</b></p>
+
+<p><tt>dp_connect tcp -server </tt><em><tt>bool</tt></em><tt>
+-host </tt><em><tt>hostname</tt></em><tt> -port </tt><em><tt>thePort</tt></em><tt>
+-myport </tt><em><tt>myPort</tt></em><tt> -myaddr </tt><em><tt>addr</tt></em><tt>
+-async </tt><em><tt>bAsync</tt></em></p>
+
+<p><b>Comments</b></p>
+
+<p>A TCP connection logically breaks down into two types: server
+and client. For an exchange to take place, there must be one of
+each. <i>bool</i> defaults to false.</p>
+
+<ul>
+    <li><b>Server</b><p>A server channel must have a minimum of
+        -server true and -myport myPort specified.<br>
+        <i>myPort</i> is the port that the server will listen on
+        while waiting for client connections.<br>
+        All other options save -myaddr are invalid for servers.</p>
+    </li>
+</ul>
+
+<ul>
+    <li><b>Client</b><p>A client must specify the host and port,
+        at minimum.<br>
+        <i>hostname</i> is the IP address or hostname of the
+        server machine.<br>
+        <i>thePort</i> is the port the server resides on.<br>
+        If <i>bAsync</i> is true, the socket connection is made
+        asynchronously.<br>
+        <i>myAddr</i> and <i>myPort</i> are the IP
+        address/hostname and the port number of the client,
+        respectively.&nbsp;</p>
+    </li>
+</ul>
+
+<p><b>Examples</b></p>
+
+<p><tt>dp_connect tcp -server true -myport 1025<br>
+dp_connect tcp -host foo.com -port 1025<br>
+dp_connect tcp -server true -myaddr foo.bar.com -myport 5150<br>
+dp_connect tcp -host foo.bar.com -port 5150 -async true</tt></p>
+</body>
+</html>
+

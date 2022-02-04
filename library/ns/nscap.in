@@ -1,0 +1,11 @@
+# nameServers {{host port logfile} ....}
+set nameServers {
+    @NS_HOSTS@
+}
+
+# Port on which launchd is listening
+set launchPort @NS_LAUNCHPORT@
+
+# List of legal commands from autoload modules.  You can use wildcards.
+# The pattern ns_* is implicit.
+set nsModuleCmds {CMTP_Translate}

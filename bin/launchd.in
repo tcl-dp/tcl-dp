@@ -1,0 +1,35 @@
+#!@DP_BINDIR@/dptcl -f
+
+set path {@NS_PATH@}
+
+proc ReadCommand {mode fid} {
+    global env
+
+    if {[gets $fid input] == -1} {
+	exit
+    } 
+    if {[catch {eval ldExec $input} result]} {
+	puts stdout -1
+	puts stdout $result
+    } else {
+	puts stdout 1
+    }
+    exit	
+}
+
+proc ldExec {args} {
+    global path
+
+    set cmd [lindex $args 0]
+    set args [lrange $args 1 end]
+    set result "$args: Command not found"
+    foreach x $path {
+	if {[eval file exec $x/$cmd]} {
+	    if {[catch {eval exec $x/$cmd $args &} result] ==0} {
+		return
+	    } 
+	}
+    }
+    error $result
+}
+dp_filehandler stdin r ReadCommand

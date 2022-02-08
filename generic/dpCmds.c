@@ -242,7 +242,9 @@ Dp_CopyCmd(dummy, interp, argc, argv)
 	    goto error;
         }
         if (actuallyRead == 0) {
-            sprintf(interp->result, "%d", totalRead);
+            char result[32];
+            snprintf(result, 32, "%d", totalRead);
+            Tcl_SetResult(interp, result, TCL_VOLATILE);
 	    goto done;
         }
 	for (i=0; i<numOutChans; i++) {
@@ -263,7 +265,9 @@ done:
     if (outChans != NULL) {
 	ckfree((char*)outChans);
     }
-    sprintf(interp->result, "%d", totalRead);
+    char result[32];
+    snprintf(result, 32, "%d", totalRead);
+    Tcl_SetResult(interp, result, TCL_VOLATILE);
     return TCL_OK;
 
 error:

@@ -538,7 +538,7 @@ DpProcessRPCMessage(interp, chan, id, token, message)
 		    ckfree(errMsg);
 		} else {
 		    if (DpSendRPCMessage(rcPtr->chan, TOK_RET, id,
-			     interp->result) != TCL_OK) {
+			     Tcl_GetStringResult(interp)) != TCL_OK) {
 		    	goto error;
 		    }
 		}

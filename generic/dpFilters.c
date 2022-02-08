@@ -1401,7 +1401,7 @@ typedef struct {
     }
 
     /* Reserve the space for the result. */
-    needed = strlen(interp->result);
+    needed = strlen(Tcl_GetStringResult(interp));
 
     if(needed > 0) {
         *outBuf = (char *)ckalloc(needed);
@@ -1410,7 +1410,7 @@ typedef struct {
             return ENOMEM;
         }
 	*outLength = needed;
-	memcpy(*outBuf, interp->result, needed);
+	memcpy(*outBuf, Tcl_GetStringResult(interp), needed);
     }
 
     if(mode == DP_FILTER_CLOSE) {

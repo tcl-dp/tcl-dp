@@ -1,0 +1,24 @@
+name: build
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Setup
+      run: sudo apt-get install tcl-dev
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Configure CMake
+      run: cmake -B release
+
+    - name: Build
+      run: cmake --build release

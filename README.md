@@ -7,7 +7,7 @@ protocols to Tcl.
 A C interface to the RPC primitives is also provided in the `api/`
 directory.
 
-# How to Build and Install on UNIX
+# Building and Installing on UNIX
 
 Download and install Tcl 8.3.2 or above.  Tcl 8.4.19 and Tcl 8.5.6 are
 the most heavily tested.
@@ -33,7 +33,7 @@ mkdir Release    # Your choice of directory name
 cd  Release
 ```
 
-Run cmake, specifying the directory containing ``CMakeLists.txt, which in
+Run cmake, specifying the directory containing `CMakeLists.txt`, which in
 this example is `..`:
 ```
 cmake ..
@@ -56,7 +56,7 @@ cd Debug
 cmake -DCMAKE_BUILD_TYPE:STRING=Debug ..
 ```
 
-To prepare to install in a location other than `/usr/local`,
+To prepare to install in a location other than `/usr/local/`,
 ```
 cmake -DCMAKE_INSTALL_PREFIX:PATH=/home/voom ..
 ```
@@ -100,7 +100,7 @@ ctest -V -R api
 See `tests/README` for more details about the current state of the unit
 tests.
 
-Install in `/usr/local/dp42`.  You will have to do this as root, or use sudo
+Install in `/usr/local/dp42/`.  You will have to do this as root, or use sudo
 if you are authorized:
 ```
 make install
@@ -254,7 +254,7 @@ Please see the FAQ before emailing us if you have problems using DP.
 
 # Documentation
 
-Documentation for the  DP API and library functions is available in the
+Documentation for the DP API and library functions is available in the
 `doc/` subdirectory in standard HTML format.  You can use any web browser
 to read the files.
 
@@ -273,7 +273,7 @@ available at
 but this site has since been taken down.
 
 Then Mike Gerdts modified 1997 version 4.0b2 to create version 4.1
-and uploaded
+and uploaded it to
 [Tcl-DP to SourceForge](https://sourceforge.net/projects/tcldp/).
 Tcl-DP 4.1 file `releaseNote-4.1.txt` contains John McGehee's detailed
 analysis of this release and its relationship to previous released

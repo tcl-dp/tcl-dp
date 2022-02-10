@@ -7,7 +7,9 @@ protocols to Tcl.
 A C interface to the RPC primitives is also provided in the `api/`
 directory.
 
-# Building and Installing on UNIX
+See the [Release Notes](CHANGES.md) for the version history.
+
+## Building and Installing on UNIX
 
 Download and install Tcl 8.3.2 or above.  Tcl 8.4.19 and Tcl 8.5.6 are
 the most heavily tested.
@@ -226,7 +228,7 @@ Currently the ipm (IP multicast) test hangs.  The email test is skipped.
 ser_xmit and serial tests fail.  Maybe these features really do work,
 but this is not so good.
 
-Install in `C:\Program Files\dp42\`:
+Install in `C:\Program Files\dp42\`,
 ```
 nmake install
 ```
@@ -252,7 +254,7 @@ Using Tcl-DP requires nothing more than wish or tclsh.  Just add
 
 Please see the FAQ before emailing us if you have problems using DP.
 
-# Documentation
+## Documentation
 
 Documentation for the DP API and library functions is available in the
 `doc/` subdirectory in standard HTML format.  You can use any web browser
@@ -269,22 +271,21 @@ as the value of the `dp_RPC` command.
 
 Tcl-DP was originally created at Cornell University. It was once
 available at
---www.cs.cornell.edu/Info/Projects/zeno/Projects/Tcl-dp.html--,
+~~http://www.cs.cornell.edu/Info/Projects/zeno/Projects/Tcl-dp.html~~,
 but this site has since been taken down.
 
-Then Mike Gerdts modified 1997 version 4.0b2 to create version 4.1
-and uploaded it to
-[Tcl-DP to SourceForge](https://sourceforge.net/projects/tcldp/).
-Tcl-DP 4.1 file `releaseNote-4.1.txt` contains John McGehee's detailed
-analysis of this release and its relationship to previous released
-version 4.0b2.
+Then Mike Gerdts modified 1997 version 4.0b2 to support Tcl 8
+and uploaded it as
+[Tcl-DP 4.1 on SourceForge](https://sourceforge.net/projects/tcldp/files/tcldp-4.1/).
 
 John McGehee updated Tcl-DP to Tcl 8.5 and Linux 2.6 and added a
-new CMake build and test system. He released this as version 4.2.0 on
-SourceForge.
+new CMake build and test system. He released this as
+[Tcl DP 4.2.0 on SourceForge](https://sourceforge.net/projects/tcldp/files/tcldp-4.2.0/).
 
 Now, Tcl-DP has been ported to GitHub using version 4.2.0 as a starting
 point.
+
+See the [Release Notes](CHANGES.md) for the most detailed project history.
 
 ## Credits
 
@@ -300,7 +301,7 @@ at this point, the following people deserve special attention:
 - Tim MacKenzie, creator of tclRawTCP
 - Larry Rowe, co-creator of the original Tcl-DP;
 - Lou Salkind, ported Tcl-DP to Tcl 7.0/Tk 3.3
-- R Lindsay Todd, developed security mechanism
+- R. Lindsay Todd, developed security mechanism
 - Peter Liu, developed extended name server code
 - Ulla Bartsich, integrated many changes into Tcl-DP 3.3
 - Mike Grafton, wrote extensive test suites for Tcl-DP 3.x

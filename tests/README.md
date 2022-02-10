@@ -14,7 +14,7 @@ To see more output, use CTest, which comes with CMake:
 ctest -V
 ```
 
-You can specify a subset of tests with the `cmake -i` option.  For example,
+You can specify a subset of tests.  For example,
 to run tests that match the string "rpc":
 ```
 ctest -V -R rpc
@@ -65,7 +65,7 @@ platform, these failing tests will be disregarded.
 # Tests Ported to Tcltest in Tcl-DP 4.2
 
 The tests formerly used an ancestor of tcltest, that was defined in
-file tests/defs (now removed).  This has been replaced by tcltest, the
+file `tests/defs` (now removed).  This has been replaced by tcltest, the
 standard test framework that is a part of Tcl.  The old test framework was
 mercifully similar to tcltest.  Nonetheless, the tests look a bit unusual,
 even when converted to tcltest.  For example, in the old test framework,

@@ -99,13 +99,12 @@ Or run only the tests whose name matches "api":
 ctest -V -R api
 ```
 
-See `tests/README` for more details about the current state of the unit
-tests.
+See the [test documentation](tests/README.md) for more about the current state
+of the unit tests.
 
-Install in `/usr/local/dp42/`.  You will have to do this as root, or use sudo
-if you are authorized:
+Install in `/usr/local/dp42/`.  This requires root (sudo) privilege:
 ```
-make install
+sudo make install
 ```
 
 or if you want to install somewhere other than `/usr/local/`, run CMake with
@@ -116,8 +115,8 @@ Test the installation:
 tclsh ../tests/all.tcl  -constraints isInstallTest -notfile "api.test  email.test ipm.test ser_xmit.test serial.test"
 ```
 
-See `tests/README` for more details about the current state of the unit
-tests.
+See the [test documentation](tests/README.md) for more about the current state
+of the unit tests.
 
 ## How to Build and Install on Windows
 

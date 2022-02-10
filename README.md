@@ -306,4 +306,5 @@ at this point, the following people deserve special attention:
 - Mike Grafton, wrote extensive test suites for Tcl-DP 3.x
 - Jon Knight, wrote IP-multicast extensions to Tcl-DP 3.x
 - Gordon Chaffee, ported Tcl-DP 3 to Windows-NT
-- John McGehee, added CMake build and test, upgraded to Tcl 8.5 and Linux 2.6
+- Mike Gerdts, upgraded to Tcl 8
+- John McGehee (@jmcgeheeiv), added CMake build and test, upgraded to Tcl 8.5 and Linux 2.6
